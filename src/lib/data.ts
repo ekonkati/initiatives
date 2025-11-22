@@ -2,7 +2,7 @@
 'use client'
 
 import { collection, query, where, doc, getDocs, getDoc } from 'firebase/firestore';
-import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useFirestore, useMemoFirebase, useUser as useAuthUser } from '@/firebase';
 import { useCollection, useDoc } from '@/firebase';
 import { type User, type Initiative, type Task, type Attachment, type DailyCheckin, type InitiativeRating, type UserRating } from './types';
 import { useEffect, useState } from 'react';
@@ -12,8 +12,10 @@ import { useEffect, useState } from 'react';
 
 export const useUsers = () => {
   const firestore = useFirestore();
-  const q = useMemoFirebase(() => query(collection(firestore, 'users')), [firestore]);
-  return useCollection<User>(q);
+  const { user, isUserLoading } = useAuthUser();
+  const q = useMemoFirebase(() => (user ? query(collection(firestore, 'users')) : null), [firestore, user]);
+  const result = useCollection<User>(q);
+  return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 
 export const useUser = (id: string | undefined) => {
@@ -24,8 +26,10 @@ export const useUser = (id: string | undefined) => {
 
 export const useInitiatives = () => {
   const firestore = useFirestore();
-  const q = useMemoFirebase(() => query(collection(firestore, 'initiatives')), [firestore]);
-  return useCollection<Initiative>(q);
+  const { user, isUserLoading } = useAuthUser();
+  const q = useMemoFirebase(() => (user ? query(collection(firestore, 'initiatives')) : null), [firestore, user]);
+  const result = useCollection<Initiative>(q);
+  return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 
 export const useInitiative = (id: string | undefined) => {
@@ -42,43 +46,51 @@ export const useTasksForInitiative = (initiativeId: string | undefined) => {
 
 export const useTasksForUser = (userId: string | undefined) => {
     const firestore = useFirestore();
-    const { data: initiatives } = useInitiatives();
+    const { data: initiatives, isLoading: isLoadingInitiatives } = useInitiatives();
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
 
     useEffect(() => {
-        if (!userId || !initiatives) return;
-
-        const fetchTasks = async () => {
-            setIsLoading(true);
-            try {
-                const allTasks: Task[] = [];
-                const initiativePromises = initiatives.map(async (initiative) => {
-                    const tasksCollection = collection(firestore, 'initiatives', initiative.id, 'tasks');
-                    const tasksQuery = query(tasksCollection, where('ownerId', '==', userId));
-                    const tasksSnapshot = await getDocs(tasksQuery);
-                    tasksSnapshot.forEach(taskDoc => {
-                        allTasks.push({ id: taskDoc.id, ...taskDoc.data() } as Task);
-                    });
-                });
-
-                await Promise.all(initiativePromises);
-                setTasks(allTasks);
-                setError(null);
-            } catch (e: any) {
-                setError(e);
-            } finally {
+        if (!userId || !initiatives) {
+            if (!isLoadingInitiatives) {
                 setIsLoading(false);
             }
+            return;
         };
 
-        fetchTasks();
-        // This is a simplified fetch and not real-time.
-        // For real-time, we would need to set up listeners for each initiative's tasks subcollection.
-    }, [userId, initiatives, firestore]);
+        setIsLoading(true);
 
-    return { data: tasks, isLoading, error };
+        const initiativeIds = initiatives.map(i => i.id);
+        if (initiativeIds.length === 0) {
+            setTasks([]);
+            setIsLoading(false);
+            return;
+        }
+
+        const unsubscribes = initiativeIds.map(initiativeId => {
+            const tasksCollection = collection(firestore, 'initiatives', initiativeId, 'tasks');
+            const q = query(tasksCollection, where('ownerId', '==', userId));
+            return onSnapshot(q, (snapshot) => {
+                const newTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+                setTasks(prevTasks => {
+                    // Replace tasks for this initiative to avoid duplicates
+                    const otherTasks = prevTasks.filter(t => t.initiativeId !== initiativeId);
+                    return [...otherTasks, ...newTasks];
+                });
+                setIsLoading(false);
+            }, (err) => {
+                console.error(`Error fetching tasks for initiative ${initiativeId}:`, err);
+                setError(err);
+                setIsLoading(false);
+            });
+        });
+
+
+        return () => unsubscribes.forEach(unsub => unsub());
+    }, [userId, initiatives, firestore, isLoadingInitiatives]);
+
+    return { data: tasks, isLoading: isLoading || isLoadingInitiatives, error };
 };
 
 
