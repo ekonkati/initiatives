@@ -1,0 +1,636 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user in the system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user in the organization (e.g., Admin, Initiative Lead, Team Member)."
+        },
+        "department": {
+          "type": "string",
+          "description": "Department or Business Unit of the user."
+        },
+        "designation": {
+          "type": "string",
+          "description": "Job title or designation of the user."
+        },
+        "photoUrl": {
+          "type": "string",
+          "description": "URL of the user's profile photo (optional).",
+          "format": "uri"
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Indicates whether the user account is active."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "role",
+        "department",
+        "designation",
+        "active"
+      ]
+    },
+    "Initiative": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Initiative",
+      "type": "object",
+      "description": "Represents a strategic initiative.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the initiative."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the initiative."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category or theme of the initiative (e.g., Legal, HR)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the initiative."
+        },
+        "objectives": {
+          "type": "string",
+          "description": "High-level objectives of the initiative."
+        },
+        "leadIds": {
+          "type": "array",
+          "description": "References to Users. (Relationship: User 1:N Initiative) User IDs of the initiative leads.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "teamMemberIds": {
+          "type": "array",
+          "description": "References to Users. (Relationship: User 1:N Initiative) User IDs of the core team members.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the initiative (e.g., Not Started, In Progress, Completed)."
+        },
+        "priority": {
+          "type": "string",
+          "description": "Priority of the initiative (e.g., High, Medium, Low)."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Start date of the initiative.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "Target end date of the initiative.",
+          "format": "date-time"
+        },
+        "tags": {
+          "type": "array",
+          "description": "Tags associated with the initiative (e.g., MSW, Digital).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ragStatus": {
+          "type": "string",
+          "description": "RAG (Red, Amber, Green) status of the initiative."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the initiative was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the initiative was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "category",
+        "description",
+        "objectives",
+        "leadIds",
+        "teamMemberIds",
+        "status",
+        "priority",
+        "startDate",
+        "endDate",
+        "ragStatus",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Task": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Task",
+      "type": "object",
+      "description": "Represents a task within an initiative.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the task."
+        },
+        "initiativeId": {
+          "type": "string",
+          "description": "Reference to Initiative. (Relationship: Initiative 1:N Task) ID of the initiative this task belongs to."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the task."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the task."
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Task) ID of the user who owns the task."
+        },
+        "contributorIds": {
+          "type": "array",
+          "description": "References to Users. (Relationship: User 1:N Task) User IDs of the contributors to the task.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the task (e.g., Not Started, In Progress, Completed)."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Start date of the task.",
+          "format": "date-time"
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Due date of the task.",
+          "format": "date-time"
+        },
+        "progress": {
+          "type": "number",
+          "description": "Progress of the task (percentage complete)."
+        },
+        "effortEstimate": {
+          "type": "number",
+          "description": "Estimated effort required for the task (in hours or days)."
+        },
+        "dependencyIds": {
+          "type": "array",
+          "description": "References to Tasks. (Relationship: Task 1:N Task) IDs of tasks that this task depends on.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the task was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the task was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "initiativeId",
+        "title",
+        "description",
+        "ownerId",
+        "status",
+        "startDate",
+        "dueDate",
+        "progress",
+        "effortEstimate",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Attachment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Attachment",
+      "type": "object",
+      "description": "Represents an attachment (file) linked to an initiative or task.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the attachment."
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of the attachment (initiative or task)."
+        },
+        "initiativeId": {
+          "type": "string",
+          "description": "Reference to Initiative. (Relationship: Initiative 1:N Attachment) ID of the initiative this attachment is linked to (if applicable)."
+        },
+        "taskId": {
+          "type": "string",
+          "description": "Reference to Task. (Relationship: Task 1:N Attachment) ID of the task this attachment is linked to (if applicable)."
+        },
+        "fileName": {
+          "type": "string",
+          "description": "Name of the file."
+        },
+        "fileType": {
+          "type": "string",
+          "description": "File extension or MIME type."
+        },
+        "driveFileId": {
+          "type": "string",
+          "description": "ID of the file in Google Drive."
+        },
+        "driveUrl": {
+          "type": "string",
+          "description": "URL to access the file in Google Drive.",
+          "format": "uri"
+        },
+        "uploadedBy": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Attachment) ID of the user who uploaded the file."
+        },
+        "uploadedAt": {
+          "type": "string",
+          "description": "Timestamp when the file was uploaded.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "fileName",
+        "fileType",
+        "driveFileId",
+        "driveUrl",
+        "uploadedBy",
+        "uploadedAt"
+      ]
+    },
+    "InitiativeRating": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "InitiativeRating",
+      "type": "object",
+      "description": "Represents a performance rating for an initiative.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the initiative rating."
+        },
+        "initiativeId": {
+          "type": "string",
+          "description": "Reference to Initiative. (Relationship: Initiative 1:N InitiativeRating) ID of the initiative being rated."
+        },
+        "ratedBy": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N InitiativeRating) ID of the user who provided the rating."
+        },
+        "period": {
+          "type": "string",
+          "description": "Period for which the initiative is being rated (e.g., monthly or at closure)."
+        },
+        "impactScore": {
+          "type": "number",
+          "description": "Score for the initiative's impact (1-5)."
+        },
+        "timelinessScore": {
+          "type": "number",
+          "description": "Score for the initiative's timeliness (1-5)."
+        },
+        "executionScore": {
+          "type": "number",
+          "description": "Score for the initiative's execution quality (1-5)."
+        },
+        "collaborationScore": {
+          "type": "number",
+          "description": "Score for the initiative's collaboration (1-5)."
+        },
+        "overallScore": {
+          "type": "number",
+          "description": "Overall score for the initiative (average of the above scores)."
+        },
+        "comments": {
+          "type": "string",
+          "description": "Comments or justification for the rating."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the rating was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "initiativeId",
+        "ratedBy",
+        "period",
+        "impactScore",
+        "timelinessScore",
+        "executionScore",
+        "collaborationScore",
+        "overallScore",
+        "createdAt"
+      ]
+    },
+    "UserRating": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserRating",
+      "type": "object",
+      "description": "Represents a performance rating for a user on a specific initiative.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user rating."
+        },
+        "initiativeId": {
+          "type": "string",
+          "description": "Reference to Initiative. (Relationship: Initiative 1:N UserRating) ID of the initiative the user is being rated on."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N UserRating) ID of the user being rated."
+        },
+        "ratedBy": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N UserRating) ID of the user who provided the rating."
+        },
+        "ownershipScore": {
+          "type": "number",
+          "description": "Score for the user's ownership (1-5)."
+        },
+        "qualityScore": {
+          "type": "number",
+          "description": "Score for the user's quality of work (1-5)."
+        },
+        "timelinessScore": {
+          "type": "number",
+          "description": "Score for the user's timeliness (1-5)."
+        },
+        "collaborationScore": {
+          "type": "number",
+          "description": "Score for the user's collaboration (1-5)."
+        },
+        "overallScore": {
+          "type": "number",
+          "description": "Overall score for the user (average of the above scores)."
+        },
+        "comments": {
+          "type": "string",
+          "description": "Comments or justification for the rating."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the rating was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "initiativeId",
+        "userId",
+        "ratedBy",
+        "ownershipScore",
+        "qualityScore",
+        "timelinessScore",
+        "collaborationScore",
+        "overallScore",
+        "createdAt"
+      ]
+    },
+    "DailyCheckin": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DailyCheckin",
+      "type": "object",
+      "description": "Represents a daily check-in record for an initiative.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the daily check-in."
+        },
+        "initiativeId": {
+          "type": "string",
+          "description": "Reference to Initiative. (Relationship: Initiative 1:N DailyCheckin) ID of the initiative the check-in is for."
+        },
+        "date": {
+          "type": "string",
+          "description": "Date of the check-in.",
+          "format": "date-time"
+        },
+        "ragStatus": {
+          "type": "string",
+          "description": "RAG (Red, Amber, Green) status of the initiative for that day."
+        },
+        "summary": {
+          "type": "string",
+          "description": "Short summary of what happened on that day, risks, decisions."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N DailyCheckin) ID of the user who created the check-in."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the check-in was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "initiativeId",
+        "date",
+        "ragStatus",
+        "summary",
+        "createdBy",
+        "createdAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. Accessible only by the user or an admin.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/initiatives/{initiativeId}",
+        "definition": {
+          "entityName": "Initiative",
+          "schema": {
+            "$ref": "#/backend/entities/Initiative"
+          },
+          "description": "Stores initiative data. Includes denormalized 'leadIds' and 'teamMemberIds' for authorization independence.",
+          "params": [
+            {
+              "name": "initiativeId",
+              "description": "The unique identifier of the initiative."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/initiatives/{initiativeId}/tasks/{taskId}",
+        "definition": {
+          "entityName": "Task",
+          "schema": {
+            "$ref": "#/backend/entities/Task"
+          },
+          "description": "Stores tasks associated with an initiative. Includes denormalized 'ownerId' for authorization independence.",
+          "params": [
+            {
+              "name": "initiativeId",
+              "description": "The unique identifier of the initiative."
+            },
+            {
+              "name": "taskId",
+              "description": "The unique identifier of the task."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/initiatives/{initiativeId}/attachments/{attachmentId}",
+        "definition": {
+          "entityName": "Attachment",
+          "schema": {
+            "$ref": "#/backend/entities/Attachment"
+          },
+          "description": "Stores attachments related to an initiative.  Authorization based on initiative membership.",
+          "params": [
+            {
+              "name": "initiativeId",
+              "description": "The unique identifier of the initiative."
+            },
+            {
+              "name": "attachmentId",
+              "description": "The unique identifier of the attachment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/initiatives/{initiativeId}/initiativeRatings/{initiativeRatingId}",
+        "definition": {
+          "entityName": "InitiativeRating",
+          "schema": {
+            "$ref": "#/backend/entities/InitiativeRating"
+          },
+          "description": "Stores performance ratings for initiatives.  Authorization based on initiative membership.",
+          "params": [
+            {
+              "name": "initiativeId",
+              "description": "The unique identifier of the initiative."
+            },
+            {
+              "name": "initiativeRatingId",
+              "description": "The unique identifier of the initiative rating."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/initiatives/{initiativeId}/userRatings/{userRatingId}",
+        "definition": {
+          "entityName": "UserRating",
+          "schema": {
+            "$ref": "#/backend/entities/UserRating"
+          },
+          "description": "Stores performance ratings for users on specific initiatives.  Authorization based on initiative membership.",
+          "params": [
+            {
+              "name": "initiativeId",
+              "description": "The unique identifier of the initiative."
+            },
+            {
+              "name": "userRatingId",
+              "description": "The unique identifier of the user rating."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/initiatives/{initiativeId}/dailyCheckins/{dailyCheckinId}",
+        "definition": {
+          "entityName": "DailyCheckin",
+          "schema": {
+            "$ref": "#/backend/entities/DailyCheckin"
+          },
+          "description": "Stores daily check-in records for initiatives.  Authorization based on initiative membership.",
+          "params": [
+            {
+              "name": "initiativeId",
+              "description": "The unique identifier of the initiative."
+            },
+            {
+              "name": "dailyCheckinId",
+              "description": "The unique identifier of the daily check-in."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "role_admin",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Marks a user as an administrator. Existence of the document grants admin privileges.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who is an admin."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to meet the application's requirements while adhering to the core design principles of Authorization Independence, Clarity of Intent, and DBAC. It leverages denormalization and structural segregation to simplify security rules and ensure data integrity.\n\n**Authorization Independence (Denormalization):**\n\n*   **Initiatives, Tasks, Attachments, InitiativeRatings, UserRatings, DailyCheckins:** All subcollections of `initiatives` include denormalized authorization data to avoid `get()` calls in security rules. For example, the `tasks` collection stores the `ownerId`. This allows tasks to be created atomically with initiative membership without needing to read the parent initiative document. Similar strategies are applied to attachments, ratings, and check-ins.\n\n**Structural Segregation:**\n\n*   **Users:** User data is stored in the `/users/{userId}` path, ensuring that all documents in the `/users` collection share the same security posture (i.e., only the user or an admin can access their document).\n*   **Initiatives:** Initiative documents are stored in the `/initiatives/{initiativeId}` path. Access control to initiatives is managed via membership denormalized into each initiative's document (`leadIds` and `teamMemberIds`).\n\n**Access Modeling:**\n\n*   **Private Data:** User data is primarily path-based (e.g., `/users/{userId}`).\n*   **Collaborative Data:** Initiatives and Tasks use a combination of path-based access and explicit `ownerId` fields (for tasks). The `ownerId` field within tasks facilitates simpler queries for tasks owned by a specific user.\n*   **Global Roles (DBAC):** Admin roles are managed via the `/roles_admin/{uid}` collection, allowing easy role-based access control in security rules.\n\n**QAPs (Rules are not Filters):**\n\n*   The structure supports secure `list` operations by segregating data with different access requirements into different collections. For example, listing initiatives only requires checking initiative membership based on denormalized data within the initiative documents, without needing to filter based on user roles.\n\nThis design supports the application's core features, including initiative and task management, user directory maintenance, daily monitoring, Google Drive integration, performance rating, prioritization, and merging, while ensuring data integrity and simplifying security rule implementation."
+  }
+}
