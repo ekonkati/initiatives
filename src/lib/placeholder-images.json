@@ -1,3 +1,82 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "user-1",
+      "description": "Alia Hassan avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2Mzc0NTI0MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman portrait"
+    },
+    {
+      "id": "user-2",
+      "description": "Ben Carter avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1583195763986-0231686dcd43?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxtYW4lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjM4MDkyNTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man portrait"
+    },
+    {
+      "id": "user-3",
+      "description": "Chloe Davis avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1532074205216-d0e1f4b87368?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHx3b21hbiUyMHByb2ZpbGV8ZW58MHx8fHwxNzYzNzczNzU0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman profile"
+    },
+    {
+      "id": "user-4",
+      "description": "David Evans avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxtYW4lMjBwcm9maWxlfGVufDB8fHx8MTc2MzgwOTI1Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man profile"
+    },
+    {
+      "id": "user-5",
+      "description": "Eva Green avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1594744803329-e58b31de8bf5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHx3b21hbiUyMHNtaWxpbmd8ZW58MHx8fHwxNzYzODE0MjEwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman smiling"
+    },
+    {
+      "id": "user-6",
+      "description": "Frank Harris avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1633367583895-08545d733dfe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxtYW4lMjBzbWlsaW5nfGVufDB8fHx8MTc2MzczMTA1MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man smiling"
+    },
+    {
+      "id": "user-7",
+      "description": "Grace Johnson avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1580894732444-8ecded7900cd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHx3b21hbiUyMHByb2Zlc3Npb25hbHxlbnwwfHx8fDE3NjM3OTMwOTF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman professional"
+    },
+    {
+      "id": "user-8",
+      "description": "Henry King avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtYW4lMjBwcm9mZXNzaW9uYWx8ZW58MHx8fHwxNzYzODEwMjczfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man professional"
+    },
+    {
+      "id": "user-9",
+      "description": "Ivy Lee avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1531547255897-f400dc1b7de2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx3b21hbiUyMHRlY2h8ZW58MHx8fHwxNzYzNzUyMDc4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman tech"
+    },
+    {
+      "id": "user-10",
+      "description": "Jack Miller avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1633381638831-0ced80e2fee4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxtYW4lMjB0ZWNofGVufDB8fHx8MTc2MzgxMzkxNnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man tech"
+    },
+    {
+      "id": "user-11",
+      "description": "Kara Nelson avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1513128034602-7814ccaddd4e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHx3b21hbiUyMGNvcnBvcmF0ZXxlbnwwfHx8fDE3NjM4MDcyMzh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman corporate"
+    },
+    {
+      "id": "user-12",
+      "description": "Leo Olsen avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1608908271749-40decee4f0e3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxtYW4lMjBjb3Jwb3JhdGV8ZW58MHx8fHwxNzYzODM1ODY3fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man corporate"
+    },
+    {
+      "id": "user-13",
+      "description": "Mia Perez avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1646295404846-658322e343e4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHx3b21hbiUyMGxlYWRlcnxlbnwwfHx8fDE3NjM4MTc1MDF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman leader"
+    }
+  ]
 }
