@@ -5,7 +5,7 @@ import { collection, query, where, doc, getDocs, getDoc } from 'firebase/firesto
 import { useFirestore, useMemoFirebase } from '@/firebase';
 import { useCollection, useDoc } from '@/firebase';
 import { type User, type Initiative, type Task, type Attachment, type DailyCheckin, type InitiativeRating, type UserRating } from './types';
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 
 // Note: These hooks now fetch data from Firestore.
 // They are designed to be used in React components.
@@ -42,31 +42,43 @@ export const useTasksForInitiative = (initiativeId: string | undefined) => {
 
 export const useTasksForUser = (userId: string | undefined) => {
     const firestore = useFirestore();
-    const q = useMemoFirebase(() => userId ? query(collection(firestore, 'tasks'), where('ownerId', '==', userId)) : null, [firestore, userId]);
-    // This is a simplified query. A real implementation might need to query across subcollections
-    // or denormalize data for this to work efficiently. For now, we assume a top-level 'tasks' collection for simplicity.
-    // This will likely require a change in the Firestore structure.
-    // Let's assume for now that tasks are in a top-level collection.
-    const initiativesCollection = collection(firestore, 'initiatives');
+    const { data: initiatives } = useInitiatives();
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<Error | null>(null);
 
-    const getTasks = async () => {
-        if(!userId) return [];
-        const initiativesSnapshot = await getDocs(initiativesCollection);
-        const allTasks: Task[] = [];
-        for (const initiativeDoc of initiativesSnapshot.docs) {
-            const tasksCollection = collection(firestore, 'initiatives', initiativeDoc.id, 'tasks');
-            const tasksQuery = query(tasksCollection, where('ownerId', '==', userId));
-            const tasksSnapshot = await getDocs(tasksQuery);
-            tasksSnapshot.forEach(taskDoc => {
-                allTasks.push({ id: taskDoc.id, ...taskDoc.data() } as Task);
-            });
-        }
-        return allTasks;
-    };
-    // This part is not a hook and will not be real-time. This is a placeholder for a more complex query.
-    // For a real-time solution, you'd listen to multiple queries and merge the results, which is more complex.
-    // This is a simplified approach.
-    return { data: null, isLoading: true, error: null }; // Placeholder return
+    useEffect(() => {
+        if (!userId || !initiatives) return;
+
+        const fetchTasks = async () => {
+            setIsLoading(true);
+            try {
+                const allTasks: Task[] = [];
+                const initiativePromises = initiatives.map(async (initiative) => {
+                    const tasksCollection = collection(firestore, 'initiatives', initiative.id, 'tasks');
+                    const tasksQuery = query(tasksCollection, where('ownerId', '==', userId));
+                    const tasksSnapshot = await getDocs(tasksQuery);
+                    tasksSnapshot.forEach(taskDoc => {
+                        allTasks.push({ id: taskDoc.id, ...taskDoc.data() } as Task);
+                    });
+                });
+
+                await Promise.all(initiativePromises);
+                setTasks(allTasks);
+                setError(null);
+            } catch (e: any) {
+                setError(e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchTasks();
+        // This is a simplified fetch and not real-time.
+        // For real-time, we would need to set up listeners for each initiative's tasks subcollection.
+    }, [userId, initiatives, firestore]);
+
+    return { data: tasks, isLoading, error };
 };
 
 

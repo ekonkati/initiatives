@@ -203,9 +203,6 @@ function StatCard({ title, value, icon, isNegative = false }: { title: string, v
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
-        <p className="text-xs text-muted-foreground">
-          {isNegative ? "-2% from last month" : "+10% from last month"}
-        </p>
       </CardContent>
     </Card>
   );
