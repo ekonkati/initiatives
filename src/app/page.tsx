@@ -179,7 +179,7 @@ export default function DashboardPage() {
             <CardDescription>Tasks assigned to you across all initiatives.</CardDescription>
           </CardHeader>
           <CardContent>
-            <TaskTable tasks={myTasks.slice(0, 5)} users={userMap} initiatives={myInitiativesData || []}/>
+            <TaskTable tasks={myTasks.slice(0, 5)} initiatives={myInitiativesData || []}/>
           </CardContent>
           <CardFooter className="justify-center border-t p-4">
             <Button size="sm" variant="ghost" className="w-full">
@@ -209,7 +209,7 @@ function StatCard({ title, value, icon, isNegative = false }: { title: string, v
 }
 
 
-function TaskTable({ tasks, users, initiatives }: { tasks: Task[]; users: Record<string, User>, initiatives: Initiative[] }) {
+function TaskTable({ tasks, initiatives }: { tasks: Task[]; initiatives: Initiative[] }) {
     const initiativesMap = useMemo(() => initiatives.reduce((acc, i) => {
         acc[i.id] = i;
         return acc;
@@ -264,3 +264,4 @@ function TaskTable({ tasks, users, initiatives }: { tasks: Task[]; users: Record
     </Table>
   );
 }
+
