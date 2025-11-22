@@ -16,6 +16,7 @@ import { CheckCircle, Clock, File, GanttChartSquare, Star, Upload, Users as User
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
+import React from "react";
 
 const RAG_MAP: Record<RAGStatus, string> = {
   Red: 'border-red-500 text-red-500',
@@ -23,7 +24,8 @@ const RAG_MAP: Record<RAGStatus, string> = {
   Green: 'border-green-500 text-green-500',
 };
 
-export default function InitiativeDetailPage({ params }: { params: { id: string } }) {
+export default function InitiativeDetailPage({ params: paramsProp }: { params: { id: string } }) {
+    const params = React.use(paramsProp);
     const initiative = getInitiative(params.id);
     if (!initiative) {
         notFound();
