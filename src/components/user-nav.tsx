@@ -20,10 +20,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from './ui/button';
+import { useUser as useAuthUser } from '@/firebase';
 import { useUser } from '@/lib/data';
 
 export function UserNav() {
-    const { data: currentUser } = useUser("1");
+    const { user: authUser } = useAuthUser();
+    const { data: currentUser } = useUser(authUser?.uid);
+
     if (!currentUser) return null;
 
   return (
@@ -48,7 +51,7 @@ export function UserNav() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
-            <Link href="/people/1">
+            <Link href={`/people/${currentUser.id}`}>
               <UserIcon className="mr-2 h-4 w-4" />
               <span>Profile</span>
               <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>

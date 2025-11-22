@@ -28,10 +28,11 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useInitiatives, useTasksForUser, useUser, useUsers } from '@/lib/data';
-import { type Task, type User } from '@/lib/types';
+import { type Task, type User, type Initiative } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useMemo } from 'react';
+import { useUser as useAuthUser } from '@/firebase';
 
 const RAG_MAP = {
   Red: 'bg-red-500',
@@ -40,7 +41,8 @@ const RAG_MAP = {
 };
 
 export default function DashboardPage() {
-  const { user: currentUser } = useUser('1'); // Mock current user
+  const { user: authUser } = useAuthUser();
+  const { data: currentUser } = useUser(authUser?.uid); 
   const { data: myInitiativesData } = useInitiatives();
   const { data: myTasksData } = useTasksForUser(currentUser?.id);
   const { data: allUsersData } = useUsers();
@@ -62,7 +64,16 @@ export default function DashboardPage() {
     }, {} as Record<string, User>);
     }, [allUsersData]);
 
-  if (!currentUser) return null; // or a loading state
+  if (!currentUser) return (
+    <AppShell>
+      <Header />
+      <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
+        <div className="flex items-center justify-center h-full">
+            <p>Please <Link href="/login" className="underline">log in</Link> to see your dashboard.</p>
+        </div>
+      </main>
+    </AppShell>
+  );
 
   const stats = {
     totalInitiatives: myInitiatives.length,
