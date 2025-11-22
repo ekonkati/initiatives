@@ -1,3 +1,5 @@
+'use client';
+
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -10,8 +12,20 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/icons"
 import Link from "next/link"
+import { useAuth } from "@/firebase";
+import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+    const auth = useAuth();
+    const router = useRouter();
+
+    const handleLogin = () => {
+        // This is a mock login. In a real app, you'd get the email and password from the form.
+        initiateEmailSignIn(auth, 'alia.hassan@example.com', 'password123');
+        router.push('/');
+    }
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
       <Card className="mx-auto max-w-sm">
@@ -30,6 +44,7 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 placeholder="m@example.com"
+                defaultValue="alia.hassan@example.com"
                 required
               />
             </div>
@@ -43,10 +58,10 @@ export default function LoginPage() {
                   Forgot your password?
                 </Link>
               </div>
-              <Input id="password" type="password" required />
+              <Input id="password" type="password" defaultValue="password123" required />
             </div>
-            <Button type="submit" className="w-full" asChild>
-                <Link href="/">Login</Link>
+            <Button onClick={handleLogin} type="submit" className="w-full">
+                Login
             </Button>
             <Button variant="outline" className="w-full">
               Login with Google

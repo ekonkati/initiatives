@@ -105,8 +105,8 @@ service cloud.firestore {
      * @principle Restricts access to a user's own data tree, but allows admin override.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      allow get: if isOwner(userId) || isAdmin() || isSignedIn();
+      allow list: if isSignedIn() || isAdmin();
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if (isOwner(userId) || isAdmin()) && isExistingDoc() && request.resource.data.id == resource.data.id;
       allow delete: if (isOwner(userId) || isAdmin()) && isExistingDoc();
