@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { RAGStatus, User } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { format } from "date-fns";
 
 const RAG_MAP: Record<RAGStatus, string> = {
   Red: 'bg-red-500',
@@ -108,7 +109,7 @@ export default function InitiativesPage() {
                                             <Badge variant={initiative.status === 'Completed' ? 'default' : 'outline'}>{initiative.status}</Badge>
                                         </TableCell>
                                         <TableCell>{initiative.priority}</TableCell>
-                                        <TableCell>{new Date(initiative.targetEndDate).toLocaleDateString()}</TableCell>
+                                        <TableCell>{format(new Date(initiative.targetEndDate), "MM/dd/yyyy")}</TableCell>
                                         <TableCell className="text-right">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>

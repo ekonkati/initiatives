@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getInitiative, getTasksForInitiative, getUser, getUsers, getAttachments } from "@/lib/data";
 import { RAGStatus, Task, User } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 import { CheckCircle, Clock, File, GanttChartSquare, Star, Upload, Users as UsersIcon, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -123,8 +124,8 @@ export default function InitiativeDetailPage({ params: paramsProp }: { params: {
                                         <Clock className="h-4 w-4 text-muted-foreground" />
                                     </CardHeader>
                                     <CardContent>
-                                        <p className="text-sm text-muted-foreground">Start: {new Date(initiative.startDate).toLocaleDateString()}</p>
-                                        <p className="text-sm text-muted-foreground">End: {new Date(initiative.targetEndDate).toLocaleDateString()}</p>
+                                        <p className="text-sm text-muted-foreground">Start: {format(new Date(initiative.startDate), "MM/dd/yyyy")}</p>
+                                        <p className="text-sm text-muted-foreground">End: {format(new Date(initiative.targetEndDate), "MM/dd/yyyy")}</p>
                                     </CardContent>
                                 </Card>
                                 <Card>
@@ -172,7 +173,7 @@ export default function InitiativeDetailPage({ params: paramsProp }: { params: {
                                                         <span>{userMap[task.ownerId]?.name}</span>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>{new Date(task.dueDate).toLocaleDateString()}</TableCell>
+                                                <TableCell>{format(new Date(task.dueDate), "MM/dd/yyyy")}</TableCell>
                                                 <TableCell><Progress value={task.progress} className="h-2" /></TableCell>
                                             </TableRow>
                                         ))}
@@ -199,7 +200,7 @@ export default function InitiativeDetailPage({ params: paramsProp }: { params: {
                                                 <File className="h-6 w-6 text-muted-foreground" />
                                                 <div>
                                                     <a href={att.driveUrl} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">{att.fileName}</a>
-                                                    <p className="text-sm text-muted-foreground">Uploaded by {userMap[att.uploadedBy]?.name} on {new Date(att.uploadedAt).toLocaleDateString()}</p>
+                                                    <p className="text-sm text-muted-foreground">Uploaded by {userMap[att.uploadedBy]?.name} on {format(new Date(att.uploadedAt), "MM/dd/yyyy")}</p>
                                                 </div>
                                             </div>
                                             <Badge variant="outline">{att.fileType}</Badge>

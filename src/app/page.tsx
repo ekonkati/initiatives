@@ -29,6 +29,7 @@ import { getInitiatives, getTasksForUser, getUser, getUsers } from '@/lib/data';
 import { type Task, type User } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { format } from 'date-fns';
 
 const RAG_MAP = {
   Red: 'bg-red-500',
@@ -228,7 +229,7 @@ function TaskTable({ tasks, users }: { tasks: Task[]; users: Record<string, User
             <TableCell>
               <Badge variant="secondary">{getInitiatives().find(i => i.id === task.initiativeId)?.name}</Badge>
             </TableCell>
-            <TableCell>{new Date(task.dueDate).toLocaleDateString()}</TableCell>
+            <TableCell>{format(new Date(task.dueDate), "MM/dd/yyyy")}</TableCell>
             <TableCell className="text-right">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
