@@ -1,11 +1,13 @@
+
 export interface User {
   id: string;
   name: string;
   email: string;
   role: 'Admin' | 'Initiative Lead' | 'Team Member' | 'Viewer';
-  businessUnit: string;
+  department: string;
   designation: string;
-  avatarUrl?: string;
+  photoUrl?: string;
+  active: boolean;
 }
 
 export type InitiativeStatus = 'Not Started' | 'In Progress' | 'On Hold' | 'Completed' | 'Cancelled';
@@ -15,15 +17,15 @@ export type RAGStatus = 'Red' | 'Amber' | 'Green';
 export interface Initiative {
   id: string;
   name: string;
-  theme: string;
+  category: string;
   description: string;
   objectives: string;
-  leads: string[]; // array of user IDs
-  teamMembers: string[]; // array of user IDs
+  leadIds: string[]; // array of user IDs
+  teamMemberIds: string[]; // array of user IDs
   status: InitiativeStatus;
   priority: InitiativePriority;
   startDate: string;
-  targetEndDate: string;
+  endDate: string;
   tags: string[];
   ragStatus: RAGStatus;
   progress: number;
@@ -34,7 +36,6 @@ export type TaskStatus = 'Not Started' | 'In Progress' | 'Blocked' | 'Completed'
 export interface Task {
   id: string;
   initiativeId: string;
-  parentTaskId?: string;
   title: string;
   description: string;
   ownerId: string; // user ID
@@ -44,12 +45,14 @@ export interface Task {
   dueDate: string;
   progress: number;
   effortEstimate?: number; // in hours
+  dependencyIds?: string[];
 }
 
 export interface Attachment {
   id: string;
   type: 'initiative' | 'task';
-  parentId: string; // initiativeId or taskId
+  initiativeId: string;
+  taskId?: string;
   fileName: string;
   fileType: string;
   driveFileId: string;
@@ -93,4 +96,5 @@ export interface DailyCheckin {
   ragStatus: RAGStatus;
   summary: string;
   createdBy: string; // user ID
+  createdAt: string;
 }

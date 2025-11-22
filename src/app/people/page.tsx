@@ -1,15 +1,20 @@
+
+'use client';
+
 import { AppShell } from "@/components/app-shell";
 import { Header } from "@/components/header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { getUsers } from "@/lib/data";
+import { useUsers } from "@/lib/data";
 import { Mail, Phone } from "lucide-react";
 import Link from "next/link";
 
 export default function PeoplePage() {
-    const users = getUsers();
+    const { data: usersData } = useUsers();
+    const users = usersData || [];
+
     return (
         <AppShell>
             <Header />
@@ -25,7 +30,7 @@ export default function PeoplePage() {
                             <CardHeader className="flex-grow">
                                 <div className="flex items-center gap-4">
                                     <Avatar className="h-16 w-16">
-                                        <AvatarImage src={user.avatarUrl} />
+                                        <AvatarImage src={user.photoUrl} />
                                         <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <div>
@@ -33,7 +38,7 @@ export default function PeoplePage() {
                                             <Link href={`/people/${user.id}`} className="hover:underline">{user.name}</Link>
                                         </CardTitle>
                                         <CardDescription>{user.designation}</CardDescription>
-                                        <CardDescription className="font-semibold text-primary">{user.businessUnit}</CardDescription>
+                                        <CardDescription className="font-semibold text-primary">{user.department}</CardDescription>
                                     </div>
                                 </div>
                             </CardHeader>

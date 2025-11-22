@@ -1,13 +1,18 @@
+
+'use client';
+
 import { AppShell } from "@/components/app-shell";
 import { Header } from "@/components/header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getInitiatives } from "@/lib/data";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useInitiatives } from "@/lib/data";
+import { Initiative } from "@/lib/types";
 import { GripVertical, Merge } from "lucide-react";
 
 export default function PrioritizationPage() {
-    const initiatives = getInitiatives();
+    const { data: initiativesData } = useInitiatives();
+    const initiatives = initiativesData || [];
     const priority1 = initiatives.filter(i => i.priority === 'High' && i.status === 'In Progress');
     const priority2 = initiatives.filter(i => i.priority === 'Medium' && i.status === 'In Progress');
     const priority3 = initiatives.filter(i => i.priority === 'Low' || i.status === 'Not Started');
@@ -35,7 +40,7 @@ export default function PrioritizationPage() {
 }
 
 
-function PriorityColumn({ title, initiatives }: { title: string, initiatives: ReturnType<typeof getInitiatives> }) {
+function PriorityColumn({ title, initiatives }: { title: string, initiatives: Initiative[] }) {
     return (
         <Card className="h-full">
             <CardHeader>
@@ -48,7 +53,7 @@ function PriorityColumn({ title, initiatives }: { title: string, initiatives: Re
                         <div className="flex-1">
                             <p className="font-medium">{initiative.name}</p>
                             <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="secondary">{initiative.theme}</Badge>
+                                <Badge variant="secondary">{initiative.category}</Badge>
                                 <Badge variant="outline">{initiative.priority} Priority</Badge>
                             </div>
                         </div>

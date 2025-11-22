@@ -1,4 +1,7 @@
-import { CreditCard, LifeBuoy, LogOut, Settings, User } from 'lucide-react';
+
+'use client';
+
+import { CreditCard, LifeBuoy, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 
 import {
@@ -17,10 +20,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from './ui/button';
-import { getUser } from '@/lib/data';
+import { useUser } from '@/lib/data';
 
 export function UserNav() {
-    const currentUser = getUser("1");
+    const { data: currentUser } = useUser("1");
     if (!currentUser) return null;
 
   return (
@@ -28,7 +31,7 @@ export function UserNav() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={currentUser.avatarUrl} alt={`@${currentUser.name}`} />
+            <AvatarImage src={currentUser.photoUrl} alt={`@${currentUser.name}`} />
             <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
           </Avatar>
         </Button>
@@ -46,7 +49,7 @@ export function UserNav() {
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
             <Link href="/people/1">
-              <User className="mr-2 h-4 w-4" />
+              <UserIcon className="mr-2 h-4 w-4" />
               <span>Profile</span>
               <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
             </Link>

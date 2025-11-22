@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AppShell } from "@/components/app-shell";
@@ -9,15 +10,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getInitiative, getTasksForInitiative, getUser, getUsers, getAttachments } from "@/lib/data";
+import { useInitiative, useTasksForInitiative, useUsers, useAttachments } from "@/lib/data";
 import { RAGStatus, Task, User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CheckCircle, Clock, File, GanttChartSquare, Star, Upload, Users as UsersIcon, ChevronLeft } from "lucide-react";
+import { ChevronLeft, Clock, File, GanttChartSquare, Star, Upload } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
-import React from "react";
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
+import React, { useMemo } from "react";
 
 const RAG_MAP: Record<RAGStatus, string> = {
   Red: 'border-red-500 text-red-500',
@@ -27,19 +28,29 @@ const RAG_MAP: Record<RAGStatus, string> = {
 
 export default function InitiativeDetailPage({ params: paramsProp }: { params: { id: string } }) {
     const params = React.use(paramsProp);
-    const initiative = getInitiative(params.id);
+    const { data: initiative, isLoading: isLoadingInitiative } = useInitiative(params.id);
+    const { data: allUsersData } = useUsers();
+    const { data: tasksData } = useTasksForInitiative(params.id);
+    const { data: attachmentsData } = useAttachments(params.id);
+    
+    const userMap = useMemo(() => {
+        if (!allUsersData) return {};
+        return allUsersData.reduce((acc, user) => {
+            acc[user.id] = user;
+            return acc;
+        }, {} as Record<string, User>);
+    }, [allUsersData]);
+
+    const tasks = tasksData || [];
+    const attachments = attachmentsData || [];
+
+    if (isLoadingInitiative) {
+        return <div>Loading...</div>; // Or a proper skeleton loader
+    }
+
     if (!initiative) {
         notFound();
     }
-
-    const allUsers = getUsers();
-    const userMap = allUsers.reduce((acc, user) => {
-        acc[user.id] = user;
-        return acc;
-    }, {} as Record<string, User>);
-
-    const tasks = getTasksForInitiative(initiative.id);
-    const attachments = getAttachments(initiative.id);
 
     return (
         <AppShell>
@@ -54,7 +65,7 @@ export default function InitiativeDetailPage({ params: paramsProp }: { params: {
                   </Link>
                   <h2 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
                     {initiative.name}
-                    <Badge variant="secondary">{initiative.theme}</Badge>
+                    <Badge variant="secondary">{initiative.category}</Badge>
                   </h2>
                 </div>
                 
@@ -96,11 +107,11 @@ export default function InitiativeDetailPage({ params: paramsProp }: { params: {
                                     <CardContent>
                                         <h4 className="text-sm font-semibold mb-2">Leads</h4>
                                         <div className="flex gap-4 mb-4">
-                                            {initiative.leads.map(id => userMap[id] && <UserAvatar user={userMap[id]} key={id} />)}
+                                            {initiative.leadIds.map(id => userMap[id] && <UserAvatar user={userMap[id]} key={id} />)}
                                         </div>
                                         <h4 className="text-sm font-semibold mb-2">Core Team</h4>
                                         <div className="flex flex-wrap gap-4">
-                                            {initiative.teamMembers.map(id => userMap[id] && <UserAvatar user={userMap[id]} key={id} />)}
+                                            {initiative.teamMemberIds.map(id => userMap[id] && <UserAvatar user={userMap[id]} key={id} />)}
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -125,7 +136,7 @@ export default function InitiativeDetailPage({ params: paramsProp }: { params: {
                                     </CardHeader>
                                     <CardContent>
                                         <p className="text-sm text-muted-foreground">Start: {format(new Date(initiative.startDate), "MM/dd/yyyy")}</p>
-                                        <p className="text-sm text-muted-foreground">End: {format(new Date(initiative.targetEndDate), "MM/dd/yyyy")}</p>
+                                        <p className="text-sm text-muted-foreground">End: {format(new Date(initiative.endDate), "MM/dd/yyyy")}</p>
                                     </CardContent>
                                 </Card>
                                 <Card>
@@ -167,7 +178,7 @@ export default function InitiativeDetailPage({ params: paramsProp }: { params: {
                                                 <TableCell>
                                                     <div className="flex items-center gap-2">
                                                         <Avatar className="h-6 w-6">
-                                                          <AvatarImage src={userMap[task.ownerId]?.avatarUrl} />
+                                                          <AvatarImage src={userMap[task.ownerId]?.photoUrl} />
                                                           <AvatarFallback>{userMap[task.ownerId]?.name.charAt(0)}</AvatarFallback>
                                                         </Avatar>
                                                         <span>{userMap[task.ownerId]?.name}</span>
@@ -240,7 +251,7 @@ export default function InitiativeDetailPage({ params: paramsProp }: { params: {
 const UserAvatar = ({ user }: { user: User }) => (
     <div className="flex items-center gap-2">
         <Avatar>
-            <AvatarImage src={user.avatarUrl} />
+            <AvatarImage src={user.photoUrl} />
             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
         </Avatar>
         <div>

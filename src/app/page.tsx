@@ -1,3 +1,6 @@
+
+'use client';
+
 import {
   Activity,
   Briefcase,
@@ -7,7 +10,6 @@ import {
   MoreVertical,
   PlusCircle,
   TrendingUp,
-  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -25,11 +27,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getInitiatives, getTasksForUser, getUser, getUsers } from '@/lib/data';
+import { useInitiatives, useTasksForUser, useUser, useUsers } from '@/lib/data';
 import { type Task, type User } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
 import { format } from 'date-fns';
+import { useMemo } from 'react';
 
 const RAG_MAP = {
   Red: 'bg-red-500',
@@ -37,29 +39,30 @@ const RAG_MAP = {
   Green: 'bg-green-500',
 };
 
-const STATUS_ICON_MAP = {
-  'In Progress': <CircleDashed className="text-blue-500" />,
-  'On Hold': <Activity className="text-yellow-500" />,
-  Completed: <CheckCircle2 className="text-green-500" />,
-  'Not Started': <CircleDashed className="text-gray-500" />,
-  Cancelled: <CircleDashed className="text-red-500" />,
-  Blocked: <CircleDashed className="text-red-500" />,
-};
-
 export default function DashboardPage() {
-  const currentUser = getUser('1'); // Mock current user
-  if (!currentUser) return null;
-  
-  const myInitiatives = getInitiatives().filter(
-    (i) => i.leads.includes(currentUser.id) || i.teamMembers.includes(currentUser.id)
-  );
-  const myTasks = getTasksForUser(currentUser.id);
-  const allUsers = getUsers();
+  const { user: currentUser } = useUser('1'); // Mock current user
+  const { data: myInitiativesData } = useInitiatives();
+  const { data: myTasksData } = useTasksForUser(currentUser?.id);
+  const { data: allUsersData } = useUsers();
 
-  const userMap = allUsers.reduce((acc, user) => {
-    acc[user.id] = user;
-    return acc;
-  }, {} as Record<string, User>);
+  const myInitiatives = useMemo(() => {
+    if (!myInitiativesData || !currentUser) return [];
+    return myInitiativesData.filter(
+        (i) => i.leadIds.includes(currentUser.id) || i.teamMemberIds.includes(currentUser.id)
+    );
+  }, [myInitiativesData, currentUser]);
+  
+  const myTasks = myTasksData || [];
+
+  const userMap = useMemo(() => {
+    if (!allUsersData) return {};
+    return allUsersData.reduce((acc, user) => {
+        acc[user.id] = user;
+        return acc;
+    }, {} as Record<string, User>);
+    }, [allUsersData]);
+
+  if (!currentUser) return null; // or a loading state
 
   const stats = {
     totalInitiatives: myInitiatives.length,
@@ -115,14 +118,14 @@ export default function DashboardPage() {
                           {initiative.name}
                         </Link>
                       </p>
-                      <p className="text-sm text-muted-foreground">{initiative.theme}</p>
+                      <p className="text-sm text-muted-foreground">{initiative.category}</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-4">
                     <div className="flex -space-x-2 overflow-hidden">
-                      {initiative.teamMembers.slice(0, 3).map((memberId) => (
+                      {initiative.teamMemberIds.slice(0, 3).map((memberId) => (
                         <Avatar key={memberId} className="h-6 w-6 border-2 border-card">
-                          <AvatarImage src={userMap[memberId]?.avatarUrl} />
+                          <AvatarImage src={userMap[memberId]?.photoUrl} />
                           <AvatarFallback>{userMap[memberId]?.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                       ))}
@@ -143,7 +146,7 @@ export default function DashboardPage() {
               <CardDescription>Quick updates for initiatives you lead.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-               {myInitiatives.filter(i => i.leads.includes(currentUser.id)).slice(0,3).map(initiative => (
+               {myInitiatives.filter(i => i.leadIds.includes(currentUser.id)).slice(0,3).map(initiative => (
                   <div key={initiative.id} className="flex items-center justify-between">
                     <span className="font-medium">{initiative.name}</span>
                     <div className="flex items-center gap-2">
@@ -165,7 +168,7 @@ export default function DashboardPage() {
             <CardDescription>Tasks assigned to you across all initiatives.</CardDescription>
           </CardHeader>
           <CardContent>
-            <TaskTable tasks={myTasks.slice(0, 5)} users={userMap} />
+            <TaskTable tasks={myTasks.slice(0, 5)} users={userMap} initiatives={myInitiativesData || []}/>
           </CardContent>
           <CardFooter className="justify-center border-t p-4">
             <Button size="sm" variant="ghost" className="w-full">
@@ -198,7 +201,11 @@ function StatCard({ title, value, icon, isNegative = false }: { title: string, v
 }
 
 
-function TaskTable({ tasks, users }: { tasks: Task[]; users: Record<string, User> }) {
+function TaskTable({ tasks, users, initiatives }: { tasks: Task[]; users: Record<string, User>, initiatives: Initiative[] }) {
+    const initiativesMap = useMemo(() => initiatives.reduce((acc, i) => {
+        acc[i.id] = i;
+        return acc;
+    }, {} as Record<string, Initiative>), [initiatives]);
   return (
     <Table>
       <TableHeader>
@@ -227,7 +234,7 @@ function TaskTable({ tasks, users }: { tasks: Task[]; users: Record<string, User
             </TableCell>
             <TableCell className="font-medium">{task.title}</TableCell>
             <TableCell>
-              <Badge variant="secondary">{getInitiatives().find(i => i.id === task.initiativeId)?.name}</Badge>
+              <Badge variant="secondary">{initiativesMap[task.initiativeId]?.name}</Badge>
             </TableCell>
             <TableCell>{format(new Date(task.dueDate), "MM/dd/yyyy")}</TableCell>
             <TableCell className="text-right">

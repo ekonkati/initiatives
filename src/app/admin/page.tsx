@@ -1,15 +1,25 @@
+
+'use client';
+
 import { AppShell } from "@/components/app-shell";
 import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getUsers } from "@/lib/data";
+import { useUsers, useInitiatives } from "@/lib/data";
 import { PlusCircle } from "lucide-react";
+import { useMemo } from "react";
 
 export default function AdminPage() {
-    const users = getUsers();
-    const categories = [...new Set(getUsers().map(u => u.businessUnit))];
+    const { data: usersData } = useUsers();
+    const { data: initiativesData } = useInitiatives();
+    const users = usersData || [];
+
+    const categories = useMemo(() => {
+        if (!initiativesData) return [];
+        return [...new Set(initiativesData.map(i => i.category))];
+    }, [initiativesData]);
 
     return (
         <AppShell>
@@ -40,7 +50,7 @@ export default function AdminPage() {
                                             <TableHead>Name</TableHead>
                                             <TableHead>Email</TableHead>
                                             <TableHead>Role</TableHead>
-                                            <TableHead>Business Unit</TableHead>
+                                            <TableHead>Department</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -49,7 +59,7 @@ export default function AdminPage() {
                                                 <TableCell className="font-medium">{user.name}</TableCell>
                                                 <TableCell>{user.email}</TableCell>
                                                 <TableCell>{user.role}</TableCell>
-                                                <TableCell>{user.businessUnit}</TableCell>
+                                                <TableCell>{user.department}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>

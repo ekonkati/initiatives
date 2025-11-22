@@ -1,4 +1,7 @@
-import { getInitiatives, getUsers } from "@/lib/data";
+
+'use client';
+
+import { useInitiatives, useUsers } from "@/lib/data";
 import { AppShell } from "@/components/app-shell";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +17,7 @@ import { RAGStatus, User } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
+import { useMemo } from "react";
 
 const RAG_MAP: Record<RAGStatus, string> = {
   Red: 'bg-red-500',
@@ -22,13 +26,21 @@ const RAG_MAP: Record<RAGStatus, string> = {
 };
 
 export default function InitiativesPage() {
-    const initiatives = getInitiatives();
-    const users = getUsers();
-    const userMap = users.reduce((acc, user) => {
-        acc[user.id] = user;
-        return acc;
-    }, {} as Record<string, User>);
-    const themes = [...new Set(initiatives.map(i => i.theme))];
+    const { data: initiativesData } = useInitiatives();
+    const { data: usersData } = useUsers();
+    const initiatives = initiativesData || [];
+    const users = usersData || [];
+
+    const userMap = useMemo(() => {
+        return users.reduce((acc, user) => {
+            acc[user.id] = user;
+            return acc;
+        }, {} as Record<string, User>);
+    }, [users]);
+    
+    const themes = useMemo(() => {
+        return [...new Set(initiatives.map(i => i.category))];
+    }, [initiatives]);
 
     return (
         <AppShell>
@@ -93,13 +105,13 @@ export default function InitiativesPage() {
                                           <Link href={`/initiatives/${initiative.id}`} className="hover:underline">{initiative.name}</Link>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="secondary">{initiative.theme}</Badge>
+                                            <Badge variant="secondary">{initiative.category}</Badge>
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex -space-x-2 overflow-hidden">
-                                                {initiative.leads.map(leadId => (
+                                                {initiative.leadIds.map(leadId => (
                                                     <Avatar key={leadId} className="h-6 w-6 border-2 border-card">
-                                                        <AvatarImage src={userMap[leadId]?.avatarUrl} />
+                                                        <AvatarImage src={userMap[leadId]?.photoUrl} />
                                                         <AvatarFallback>{userMap[leadId]?.name.charAt(0)}</AvatarFallback>
                                                     </Avatar>
                                                 ))}
@@ -109,7 +121,7 @@ export default function InitiativesPage() {
                                             <Badge variant={initiative.status === 'Completed' ? 'default' : 'outline'}>{initiative.status}</Badge>
                                         </TableCell>
                                         <TableCell>{initiative.priority}</TableCell>
-                                        <TableCell>{format(new Date(initiative.targetEndDate), "MM/dd/yyyy")}</TableCell>
+                                        <TableCell>{format(new Date(initiative.endDate), "MM/dd/yyyy")}</TableCell>
                                         <TableCell className="text-right">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
