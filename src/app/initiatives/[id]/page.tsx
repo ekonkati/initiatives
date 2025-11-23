@@ -26,8 +26,7 @@ const RAG_MAP: Record<RAGStatus, string> = {
   Green: 'border-green-500 text-green-500',
 };
 
-export default function InitiativeDetailPage({ params: paramsProp }: { params: { id: string } }) {
-    const params = React.use(paramsProp);
+export default function InitiativeDetailPage({ params }: { params: { id: string } }) {
     const { data: initiative, isLoading: isLoadingInitiative } = useInitiative(params.id);
     const { data: allUsersData } = useUsers();
     const { data: tasksData } = useTasksForInitiative(params.id);
@@ -45,7 +44,14 @@ export default function InitiativeDetailPage({ params: paramsProp }: { params: {
     const attachments = attachmentsData || [];
 
     if (isLoadingInitiative) {
-        return <div>Loading...</div>; // Or a proper skeleton loader
+        return (
+            <AppShell>
+                <Header />
+                <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
+                    <div>Loading...</div>
+                </main>
+            </AppShell>
+        );
     }
 
     if (!initiative) {

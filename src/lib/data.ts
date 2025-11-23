@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { collection, query, where, doc, onSnapshot } from 'firebase/firestore';
@@ -33,10 +34,13 @@ export const useInitiatives = () => {
 };
 
 export const useInitiative = (id: string | undefined) => {
-  const firestore = useFirestore();
-  const docRef = useMemoFirebase(() => id ? doc(firestore, 'initiatives', id) : null, [firestore, id]);
-  return useDoc<Initiative>(docRef);
+    const firestore = useFirestore();
+    const { user, isUserLoading: isAuthLoading } = useAuthUser();
+    const docRef = useMemoFirebase(() => (id && user ? doc(firestore, 'initiatives', id) : null), [firestore, id, user]);
+    const { data, isLoading: isDocLoading, error } = useDoc<Initiative>(docRef);
+    return { data, isLoading: isAuthLoading || isDocLoading, error };
 };
+
 
 export const useTasksForInitiative = (initiativeId: string | undefined) => {
   const firestore = useFirestore();
