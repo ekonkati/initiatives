@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUsers, useInitiatives, useDepartments, useDesignations } from "@/lib/data";
 import { Department, Designation, User } from "@/lib/types";
 import { Database, MoreHorizontal, PlusCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -160,7 +160,7 @@ export default function AdminPage() {
                     
                     {/* Users Tab */}
                     <TabsContent value="users" className="mt-4">
-                         <Dialog open={isUserFormOpen} onOpenChange={setIsUserFormOpen}>
+                         <Dialog open={isUserFormOpen} onOpenChange={(open) => { setIsUserFormOpen(open); if (!open) setEditingUser(null); }}>
                             <Card>
                                 <CardHeader>
                                     <CardTitle>User Management</CardTitle>
@@ -207,6 +207,7 @@ export default function AdminPage() {
                                 </CardContent>
                             </Card>
                             <UserFormDialog
+                                key={editingUser ? editingUser.id : 'new'}
                                 user={editingUser}
                                 onSubmit={onUserFormSubmit}
                                 onClose={() => setIsUserFormOpen(false)}
@@ -230,7 +231,7 @@ export default function AdminPage() {
 
                      {/* Departments Tab */}
                     <TabsContent value="departments" className="mt-4">
-                        <Dialog open={isDeptFormOpen} onOpenChange={setIsDeptFormOpen}>
+                        <Dialog open={isDeptFormOpen} onOpenChange={(open) => { setIsDeptFormOpen(open); if (!open) setEditingDept(null); }}>
                             <MasterDataTable
                                 title="Departments"
                                 description="Manage the departments within the organization."
@@ -240,6 +241,7 @@ export default function AdminPage() {
                                 onDelete={handleMasterDataDelete('departments')}
                             />
                             <MasterDataFormDialog
+                                key={editingDept ? `dept-${editingDept.id}`: 'new-dept'}
                                 item={editingDept}
                                 title={editingDept ? "Edit Department" : "Add Department"}
                                 description={editingDept ? "Edit the department name." : "Add a new department."}
@@ -251,7 +253,7 @@ export default function AdminPage() {
 
                      {/* Designations Tab */}
                     <TabsContent value="designations" className="mt-4">
-                        <Dialog open={isDesigFormOpen} onOpenChange={setIsDesigFormOpen}>
+                        <Dialog open={isDesigFormOpen} onOpenChange={(open) => { setIsDesigFormOpen(open); if (!open) setEditingDesig(null); }}>
                             <MasterDataTable
                                 title="Designations"
                                 description="Manage the job titles and designations."
@@ -261,6 +263,7 @@ export default function AdminPage() {
                                 onDelete={handleMasterDataDelete('designations')}
                             />
                             <MasterDataFormDialog
+                                key={editingDesig ? `desig-${editingDesig.id}`: 'new-desig'}
                                 item={editingDesig}
                                 title={editingDesig ? "Edit Designation" : "Add Designation"}
                                 description={editingDesig ? "Edit the designation name." : "Add a new designation."}
@@ -384,17 +387,6 @@ function UserFormDialog({ user, onSubmit, onClose, departments, designations }: 
         },
     });
 
-    const memoizedUser = useMemo(() => user, [user]);
-    useMemo(() => {
-        form.reset({
-            name: memoizedUser?.name || "",
-            email: memoizedUser?.email || "",
-            role: memoizedUser?.role || "Team Member",
-            department: memoizedUser?.department || "",
-            designation: memoizedUser?.designation || "",
-        });
-    }, [memoizedUser, form]);
-
     const title = user ? "Edit User" : "Add New User";
     const description = user
         ? "Make changes to the user's profile. Click save when you're done."
@@ -486,11 +478,6 @@ function MasterDataFormDialog({ item, title, description, onSubmit, onClose }: M
         defaultValues: { name: item?.name || "" },
     });
 
-    const memoizedItem = useMemo(() => item, [item]);
-     useMemo(() => {
-        form.reset({ name: memoizedItem?.name || "" });
-    }, [memoizedItem, form]);
-
     return (
         <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
@@ -515,3 +502,5 @@ function MasterDataFormDialog({ item, title, description, onSubmit, onClose }: M
         </DialogContent>
     );
 }
+
+    
