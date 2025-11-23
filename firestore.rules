@@ -44,12 +44,12 @@ service cloud.firestore {
 
       // Tasks subcollection
       match /tasks/{taskId} {
-        allow read, write: if isInitiativeMember(initiativeId);
+        allow read, write, list: if isInitiativeMember(initiativeId);
       }
       
       // Attachments subcollection
       match /attachments/{attachmentId} {
-        allow read, write: if isInitiativeMember(initiativeId);
+        allow read, write, list: if isInitiativeMember(initiativeId);
       }
 
       // other subcollections can be added here
