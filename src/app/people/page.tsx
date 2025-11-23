@@ -6,9 +6,10 @@ import { Header } from "@/components/header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useUsers } from "@/lib/data";
-import { Mail, Phone } from "lucide-react";
+import { Mail, MoreVertical, Phone } from "lucide-react";
 import Link from "next/link";
 
 export default function PeoplePage() {
@@ -27,20 +28,33 @@ export default function PeoplePage() {
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {users.map(user => (
                         <Card key={user.id} className="flex flex-col">
-                            <CardHeader className="flex-grow">
-                                <div className="flex items-center gap-4">
-                                    <Avatar className="h-16 w-16">
-                                        <AvatarImage src={user.photoUrl} />
-                                        <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <CardTitle className="text-lg">
-                                            <Link href={`/people/${user.id}`} className="hover:underline">{user.name}</Link>
-                                        </CardTitle>
-                                        <CardDescription>{user.designation}</CardDescription>
-                                        <CardDescription className="font-semibold text-primary">{user.department}</CardDescription>
+                            <CardHeader>
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <Avatar className="h-16 w-16">
+                                            <AvatarImage src={user.photoUrl} />
+                                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <CardTitle className="text-lg">
+                                                <Link href={`/people/${user.id}`} className="hover:underline">{user.name}</Link>
+                                            </CardTitle>
+                                            <CardDescription>{user.designation}</CardDescription>
+                                        </div>
                                     </div>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuItem>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem className="text-red-500">Deactivate</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
+                                <CardDescription className="font-semibold text-primary pt-2">{user.department}</CardDescription>
                             </CardHeader>
                             <CardContent className="flex items-center justify-center gap-4 border-t pt-4 mt-auto">
                                 <Button variant="outline" size="icon">

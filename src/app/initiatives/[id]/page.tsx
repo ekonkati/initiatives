@@ -14,7 +14,7 @@ import { useInitiative, useTasksForInitiative, useUsers, useAttachments } from "
 import { RAGStatus, Task, User } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { ChevronLeft, Clock, File, GanttChartSquare, Star, Upload } from "lucide-react";
+import { ChevronLeft, Clock, File, GanttChartSquare, Pencil, Star, Upload } from "lucide-react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -65,17 +65,22 @@ export default function InitiativeDetailPage() {
         <AppShell>
             <Header />
             <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
-                <div className="flex items-center gap-4">
-                  <Link href="/initiatives">
-                    <Button variant="outline" size="icon" className="h-7 w-7">
-                        <ChevronLeft className="h-4 w-4" />
-                        <span className="sr-only">Back</span>
-                    </Button>
-                  </Link>
-                  <h2 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
-                    {initiative.name}
-                    <Badge variant="secondary">{initiative.category}</Badge>
-                  </h2>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <Link href="/initiatives">
+                      <Button variant="outline" size="icon" className="h-7 w-7">
+                          <ChevronLeft className="h-4 w-4" />
+                          <span className="sr-only">Back</span>
+                      </Button>
+                    </Link>
+                    <h2 className="flex items-center gap-2 text-3xl font-bold tracking-tight">
+                      {initiative.name}
+                      <Badge variant="secondary">{initiative.category}</Badge>
+                    </h2>
+                  </div>
+                  <Button>
+                    <Pencil className="mr-2 h-4 w-4" /> Edit Initiative
+                  </Button>
                 </div>
                 
                 <Tabs defaultValue="overview">
@@ -288,5 +293,3 @@ function RatingChart() {
         </ResponsiveContainer>
     )
 }
-
-    
