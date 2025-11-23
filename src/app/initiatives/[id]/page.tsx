@@ -620,7 +620,7 @@ function DocumentManager({ initiativeId, attachments, userMap, isMember }: Docum
                                     <TableCell className="font-medium">{attachment.name}</TableCell>
                                     <TableCell><Badge variant="outline">{attachment.fileType}</Badge></TableCell>
                                     <TableCell>{userMap[attachment.uploadedBy]?.name || 'Unknown'}</TableCell>
-                                    <TableCell>{format(new Date(attachment.createdAt), "MM/dd/yyyy")}</TableCell>
+                                    <TableCell>{attachment.createdAt ? format(new Date(attachment.createdAt), "MM/dd/yyyy") : ''}</TableCell>
                                     <TableCell className="text-right">
                                         <a href={attachment.url} target="_blank" rel="noopener noreferrer">
                                             <Button variant="ghost" size="icon">
@@ -746,5 +746,7 @@ function AttachmentFormDialog({ open, onOpenChange, onSubmit, attachment }: Atta
     </Dialog>
   );
 }
+
+    
 
     
