@@ -4,15 +4,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Helper function to get a user's role from their profile
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    }
+
     // Helper function to check if a user is an admin
     function isAdmin() {
-      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return getUserRole(request.auth.uid) == 'Admin';
     }
 
     // Helper function to check if a user is a member of an initiative
     function isInitiativeMember(initiativeId) {
       let initiative = get(/databases/$(database)/documents/initiatives/$(initiativeId)).data;
-      return request.auth.uid in initiative.leadIds || request.auth.uid in initiative.teamMemberIds || isAdmin();
+      // Ensure initiative data and member lists exist before checking
+      let leads = initiative.data.leadIds;
+      let members = initiative.data.teamMemberIds;
+      return request.auth.uid in leads || request.auth.uid in members || isAdmin();
     }
 
     // Default deny all
@@ -21,10 +29,10 @@ service cloud.firestore {
     }
 
     // Allow any authenticated user to read the list of users for display purposes.
-    // Restrict updates to the user themselves.
+    // Restrict updates to the user themselves or an admin.
     match /users/{userId} {
       allow read: if request.auth.uid != null;
-      allow update: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId || isAdmin();
       allow create: if request.auth.uid != null;
     }
 
@@ -61,7 +69,7 @@ service firebase.storage {
   match /b/{bucket}/o {
     // Allow members of an initiative to read/write to that initiative's attachment folder
     match /initiatives/{initiativeId}/attachments/{allPaths=**} {
-      allow read, write: if isInitiativeMember(initiativeId);
+       allow read, write: if isInitiativeMember(initiativeId);
     }
   }
 }
