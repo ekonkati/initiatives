@@ -52,7 +52,6 @@ service cloud.firestore {
       allow list: if request.auth.uid != null;
       
       // Allow read/write only if the user is a member of the initiative.
-      // This rule now correctly uses the 'resource.data' available on read/write operations.
       allow read, write: if isInitiativeMember(resource.data);
 
       // Tasks subcollection
@@ -64,29 +63,6 @@ service cloud.firestore {
       match /attachments/{attachmentId} {
         allow read, write, list: if isMemberOfInitiative(initiativeId);
       }
-    }
-  }
-}
-
-service firebase.storage {
-  match /b/{bucket}/o {
-
-    // Helper function to check if a user is an admin by reading their role from their profile.
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
-    }
-
-    // Allow members of an initiative to read/write to that initiative's attachment folder
-    function isInitiativeMember(initiativeId) {
-      let initiative = get(/databases/$(database)/documents/initiatives/$(initiativeId)).data;
-      // CORRECTED LOGIC: Use 'in' operator on the list itself.
-      return request.auth.uid in initiative.leadIds || 
-             request.auth.uid in initiative.teamMemberIds || 
-             isAdmin();
-    }
-    
-    match /initiatives/{initiativeId}/attachments/{allPaths=**} {
-       allow read, write: if isInitiativeMember(initiativeId);
     }
   }
 }

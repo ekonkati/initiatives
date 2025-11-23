@@ -14,17 +14,16 @@ import { useInitiative, useTasksForInitiative, useUsers, useAttachmentsForInitia
 import { RAGStatus, Task, User, TaskStatus, Attachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { ChevronLeft, Clock, File, GanttChartSquare, Pencil, PlusCircle, Star, Trash2, Upload, MoreHorizontal, ExternalLink, FilePenLine } from "lucide-react";
+import { ChevronLeft, Clock, File, GanttChartSquare, Pencil, PlusCircle, Star, Trash2, MoreHorizontal, ExternalLink, FilePenLine } from "lucide-react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
-import React, { useMemo, useState, useRef } from "react";
-import { useFirestore, useUser as useAuthUser, useStorage } from "@/firebase";
+import React, { useMemo, useState } from "react";
+import { useFirestore, useUser as useAuthUser } from "@/firebase";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { addDoc, collection, doc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { addDoc, collection, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -522,11 +521,13 @@ function TaskFormDialog({ open, onOpenChange, onSubmit, task, users }: TaskFormD
 }
 
 // Attachment Components
-
-const renameFormSchema = z.object({
+const attachmentFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  url: z.string().url("Must be a valid URL"),
+  fileType: z.string().min(1, "File type is required"),
 });
-type RenameFormValues = z.infer<typeof renameFormSchema>;
+type AttachmentFormValues = z.infer<typeof attachmentFormSchema>;
+
 
 interface DocumentManagerProps {
     initiativeId: string;
@@ -536,85 +537,60 @@ interface DocumentManagerProps {
 }
 
 function DocumentManager({ initiativeId, attachments, userMap, isMember }: DocumentManagerProps) {
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [isRenaming, setIsRenaming] = useState<Attachment | null>(null);
-    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-    
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingAttachment, setEditingAttachment] = useState<Attachment | null>(null);
+
     const firestore = useFirestore();
-    const storage = useStorage();
     const { user: authUser } = useAuthUser();
     const { toast } = useToast();
 
-    const handleUploadClick = () => {
-        fileInputRef.current?.click();
+    const handleAddNew = () => {
+        setEditingAttachment(null);
+        setIsFormOpen(true);
     };
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file || !authUser) return;
-
-        const storagePath = `initiatives/${initiativeId}/attachments/${Date.now()}_${file.name}`;
-        const storageRef = ref(storage, storagePath);
-        const uploadTask = uploadBytesResumable(storageRef, file);
-
-        uploadTask.on('state_changed',
-            (snapshot) => {
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                setUploadProgress(progress);
-            },
-            (error) => {
-                console.error("Upload failed:", error);
-                toast({ title: "Upload Error", description: "Could not upload file.", variant: "destructive" });
-                setUploadProgress(null);
-            },
-            () => {
-                getDownloadURL(uploadTask.snapshot.ref).then(async (downloadURL) => {
-                    const attachmentsCol = collection(firestore, 'initiatives', initiativeId, 'attachments');
-                    await addDoc(attachmentsCol, {
-                        initiativeId,
-                        name: file.name,
-                        storagePath,
-                        downloadURL,
-                        fileType: file.type || 'unknown',
-                        uploadedBy: authUser.uid,
-                        createdAt: new Date().toISOString(),
-                    });
-                    toast({ title: "Upload Complete", description: `${file.name} has been uploaded.` });
-                    setUploadProgress(null);
-                });
-            }
-        );
-         // Reset file input
-        if(fileInputRef.current) fileInputRef.current.value = "";
-    };
-
-    const handleRename = (attachment: Attachment) => {
-        setIsRenaming(attachment);
+    const handleEdit = (attachment: Attachment) => {
+        setEditingAttachment(attachment);
+        setIsFormOpen(true);
     };
 
     const handleDelete = async (attachment: Attachment) => {
         if (!confirm(`Are you sure you want to delete "${attachment.name}"?`)) return;
 
-        const storageRef = ref(storage, attachment.storagePath);
         try {
-            await deleteObject(storageRef);
             await deleteDoc(doc(firestore, 'initiatives', initiativeId, 'attachments', attachment.id));
-            toast({ title: "File Deleted", description: `"${attachment.name}" has been removed.` });
+            toast({ title: "Document link deleted" });
         } catch (error: any) {
             console.error("Deletion failed:", error);
-            toast({ title: "Error", description: `Could not delete file: ${error.message}`, variant: "destructive" });
+            toast({ title: "Error", description: `Could not delete link: ${error.message}`, variant: "destructive" });
         }
     };
     
-    const onRenameSubmit = async (values: RenameFormValues) => {
-        if (!isRenaming) return;
-        const docRef = doc(firestore, 'initiatives', initiativeId, 'attachments', isRenaming.id);
+    const onFormSubmit = async (values: AttachmentFormValues) => {
+        if (!authUser) {
+            toast({ title: "Authentication error", description: "You must be logged in.", variant: "destructive" });
+            return;
+        }
+
         try {
-            await updateDoc(docRef, { name: values.name });
-            toast({ title: "File Renamed" });
-            setIsRenaming(null);
+            if (editingAttachment) {
+                const docRef = doc(firestore, 'initiatives', initiativeId, 'attachments', editingAttachment.id);
+                await updateDoc(docRef, values);
+                toast({ title: "Document link updated" });
+            } else {
+                const attachmentsCol = collection(firestore, 'initiatives', initiativeId, 'attachments');
+                await addDoc(attachmentsCol, {
+                    ...values,
+                    initiativeId,
+                    uploadedBy: authUser.uid,
+                    createdAt: new Date().toISOString(),
+                });
+                toast({ title: "Document link added" });
+            }
+            setIsFormOpen(false);
+            setEditingAttachment(null);
         } catch (error: any) {
-            toast({ title: "Error", description: `Could not rename file: ${error.message}`, variant: "destructive" });
+             toast({ title: "Error", description: `Could not save link: ${error.message}`, variant: "destructive" });
         }
     };
 
@@ -625,19 +601,15 @@ function DocumentManager({ initiativeId, attachments, userMap, isMember }: Docum
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Documents</CardTitle>
-                        <CardDescription>Manage files for this initiative.</CardDescription>
+                        <CardDescription>Manage Google Drive links for this initiative.</CardDescription>
                     </div>
                      {isMember && (
-                        <>
-                            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                            <Button onClick={handleUploadClick} disabled={uploadProgress !== null}>
-                                {uploadProgress !== null ? `Uploading ${uploadProgress.toFixed(0)}%` : <><Upload className="mr-2 h-4 w-4" /> Upload File</>}
-                            </Button>
-                        </>
+                        <Button onClick={handleAddNew}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Document Link
+                        </Button>
                     )}
                 </CardHeader>
                 <CardContent>
-                    {uploadProgress !== null && <Progress value={uploadProgress} className="mb-4" />}
                     <Table>
                         <TableHeader>
                             <TableRow>
@@ -659,7 +631,7 @@ function DocumentManager({ initiativeId, attachments, userMap, isMember }: Docum
                                     <TableCell>{userMap[attachment.uploadedBy]?.name || 'Unknown'}</TableCell>
                                     <TableCell>{attachment.createdAt ? format(new Date(attachment.createdAt), "MM/dd/yyyy") : ''}</TableCell>
                                     <TableCell className="text-right">
-                                        <a href={attachment.downloadURL} target="_blank" rel="noopener noreferrer">
+                                        <a href={attachment.url} target="_blank" rel="noopener noreferrer">
                                             <Button variant="ghost" size="icon">
                                                 <ExternalLink className="h-4 w-4" />
                                             </Button>
@@ -672,7 +644,7 @@ function DocumentManager({ initiativeId, attachments, userMap, isMember }: Docum
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent>
-                                                    <DropdownMenuItem onClick={() => handleRename(attachment)}>
+                                                    <DropdownMenuItem onClick={() => handleEdit(attachment)}>
                                                         <FilePenLine className="mr-2 h-4 w-4" />Rename
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem className="text-red-500" onClick={() => handleDelete(attachment)}>
@@ -689,52 +661,86 @@ function DocumentManager({ initiativeId, attachments, userMap, isMember }: Docum
                 </CardContent>
             </Card>
 
-            <RenameDialog 
-                attachment={isRenaming}
-                onSubmit={onRenameSubmit}
-                onClose={() => setIsRenaming(null)}
+            <AttachmentFormDialog 
+                key={editingAttachment ? editingAttachment.id : 'new-attachment'}
+                attachment={editingAttachment}
+                open={isFormOpen}
+                onOpenChange={setIsFormOpen}
+                onSubmit={onFormSubmit}
             />
         </>
     );
 }
 
-interface RenameDialogProps {
+interface AttachmentFormDialogProps {
     attachment: Attachment | null;
-    onSubmit: (values: RenameFormValues) => void;
-    onClose: () => void;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onSubmit: (values: AttachmentFormValues) => void;
 }
 
-function RenameDialog({ attachment, onSubmit, onClose }: RenameDialogProps) {
-    const form = useForm<RenameFormValues>({
-        resolver: zodResolver(renameFormSchema),
-        defaultValues: { name: attachment?.name || "" },
+function AttachmentFormDialog({ attachment, open, onOpenChange, onSubmit }: AttachmentFormDialogProps) {
+    const form = useForm<AttachmentFormValues>({
+        resolver: zodResolver(attachmentFormSchema),
+        defaultValues: {
+            name: attachment?.name || "",
+            url: attachment?.url || "",
+            fileType: attachment?.fileType || "Google Doc",
+        },
     });
-
-    // Reset form when attachment changes
-    React.useEffect(() => {
+     React.useEffect(() => {
         if (attachment) {
-            form.reset({ name: attachment.name });
+            form.reset(attachment);
+        } else {
+            form.reset({ name: "", url: "", fileType: "Google Doc" });
         }
     }, [attachment, form]);
 
+
+    const title = attachment ? "Edit Document Link" : "Add Document Link";
+    const description = attachment ? "Update the details for this document link." : "Add a new Google Drive link to this initiative.";
+
     return (
-        <Dialog open={!!attachment} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-[425px]">
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[480px]">
                  <DialogHeader>
-                    <DialogTitle>Rename File</DialogTitle>
-                    <DialogDescription>Enter a new name for the file.</DialogDescription>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
                          <FormField control={form.control} name="name" render={({ field }) => (
                             <FormItem>
-                                <FormLabel>File Name</FormLabel>
-                                <FormControl><Input placeholder="Enter new name" {...field} /></FormControl>
+                                <FormLabel>Document Name</FormLabel>
+                                <FormControl><Input placeholder="e.g., Project Charter" {...field} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )} />
+                        <FormField control={form.control} name="url" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Google Drive URL</FormLabel>
+                                <FormControl><Input placeholder="https://docs.google.com/..." {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField control={form.control} name="fileType" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>File Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select a file type" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Google Doc">Google Doc</SelectItem>
+                                    <SelectItem value="Google Sheet">Google Sheet</SelectItem>
+                                    <SelectItem value="Google Slides">Google Slides</SelectItem>
+                                    <SelectItem value="PDF">PDF</SelectItem>
+                                    <SelectItem value="Other">Other</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
                         <DialogFooter>
-                            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
                             <Button type="submit">Save</Button>
                         </DialogFooter>
                     </form>
@@ -743,3 +749,4 @@ function RenameDialog({ attachment, onSubmit, onClose }: RenameDialogProps) {
         </Dialog>
     );
 }
+
