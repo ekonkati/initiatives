@@ -2,7 +2,7 @@
 /* eslint-disable no-console */
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, type User as AuthUser } from 'firebase/auth';
-import { getFirestore, collection, doc, writeBatch } from 'firebase/firestore';
+import { getFirestore, doc, writeBatch } from 'firebase/firestore';
 import { firebaseConfig } from '../src/firebase/config';
 import { PlaceHolderImages } from '../src/lib/placeholder-images';
 import { User } from '@/lib/types';
@@ -26,11 +26,11 @@ const usersRaw = [
 ];
 
 const initiativesRaw = [
-  { id: '1', name: 'Digital Transformation Roadmap', category: 'Technology', description: 'Develop a 5-year roadmap for digital transformation.', objectives: 'Align technology with business goals.', leadIds: ['user-2'], teamMemberIds: ['user-8', 'user-4'], status: 'In Progress', priority: 'High', startDate: '2024-02-01T00:00:00Z', endDate: '2024-07-31T00:00:00Z', tags: ['Digital', 'Strategy'], ragStatus: 'Amber', progress: 60 },
+  { id: '1', name: 'Digital Transformation Roadmap', category: 'Technology', description: 'Develop a 5-year roadmap for digital transformation.', objectives: 'Align technology with business goals.', leadIds: ['user-2'], teamMemberIds: ['user-8', 'user-4'], status: 'In Progress', priority: 'High', startDate: '2024-02-01T00:00:00Z', endDate: '2024-07-31T00:00:00Z', tags: ['Digital', 'Strategy'], ragStatus: 'Green', progress: 60 },
   { id: '2', name: 'New Market Entry Strategy', category: 'Strategy', description: 'Analyze and select new markets for expansion.', objectives: 'Increase market share by 10%.', leadIds: ['user-4', 'user-1'], teamMemberIds: ['user-3'], status: 'In Progress', priority: 'High', startDate: '2024-03-15T00:00:00Z', endDate: '2024-09-30T00:00:00Z', tags: ['Strategy', 'Growth'], ragStatus: 'Green', progress: 45 },
   { id: '3', name: 'Customer Relationship Management (CRM) System Implementation', category: 'Technology', description: 'Implement a new CRM system across sales and marketing.', objectives: 'Improve customer data management and sales pipeline visibility.', leadIds: ['user-2'], teamMemberIds: ['user-3', 'user-6'], status: 'Completed', priority: 'High', startDate: '2023-09-01T00:00:00Z', endDate: '2024-04-30T00:00:00Z', tags: ['CRM', 'Technology', 'Sales'], ragStatus: 'Green', progress: 100 },
   { id: '4', name: 'Diversity and Inclusion Initiative', category: 'HR', description: 'Promote diversity and inclusion in the workplace.', objectives: 'Increase representation of underrepresented groups in leadership by 15%.', leadIds: ['user-13'], teamMemberIds: ['user-7', 'user-1'], status: 'In Progress', priority: 'Medium', startDate: '2024-01-10T00:00:00Z', endDate: '2024-12-31T00:00:00Z', tags: ['HR', 'DEI'], ragStatus: 'Green', progress: 50 },
-  { id: '5', name: 'Contract Lifecycle Management (CLM) Tool', category: 'Legal', description: 'Select and implement a CLM tool.', objectives: 'Automate contract creation, approval, and storage.', leadIds: ['user-5'], teamMemberIds: ['user-12', 'user-10'], status: 'Not Started', priority: 'Medium', startDate: '2024-07-20T00:00:00Z', endDate: '2025-02-20T00:00:00Z', tags: ['Legal', 'Automation', 'Digital'], ragStatus: 'Green', progress: 0 },
+  { id: '5', name: 'Contract Lifecycle Management (CLM) Tool', category: 'Legal', description: 'Select and implement a CLM tool.', objectives: 'Automate contract creation, approval, and storage.', leadIds: ['user-5'], teamMemberIds: ['user-12', 'user-10'], status: 'Not Started', priority: 'Medium', startDate: '2024-07-20T00:00:00Z', endDate: '2025-02-20T00:00:00Z', tags: ['Legal', 'Automation', 'Digital'], ragStatus: 'Red', progress: 0 },
 ];
 
 const tasksRaw = [
@@ -72,20 +72,22 @@ async function seed() {
     for (const user of usersRaw) {
         let authUser: AuthUser;
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, user.email, 'password123');
+            // Check if user exists by signing in, then create if they don't
+            const userCredential = await signInWithEmailAndPassword(auth, user.email, 'password123').catch(async (error) => {
+                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                     console.log(`- Creating auth user for: ${user.email}`);
+                    return await createUserWithEmailAndPassword(auth, user.email, 'password123');
+                }
+                throw error;
+            });
             authUser = userCredential.user;
-            console.log(`- Created auth user for: ${user.email} (UID: ${authUser.uid})`);
+            console.log(`- Verified existing auth user: ${user.email} (UID: ${authUser.uid})`);
+
         } catch (error: any) {
-            if (error.code === 'auth/email-already-in-use') {
-                // If user exists, sign in to get their UID
-                const userCredential = await signInWithEmailAndPassword(auth, user.email, 'password123');
-                authUser = userCredential.user;
-                console.log(`- Verified existing auth user: ${user.email} (UID: ${authUser.uid})`);
-            } else {
-                console.error(`  - Error with user ${user.email}:`, error.message);
-                throw error; // Stop the script if a user fails for an unexpected reason
-            }
+            console.error(`  - Error with user ${user.email}:`, error.message);
+            throw error; // Stop the script if a user fails for an unexpected reason
         }
+        
         userIdMap[user.tempId] = authUser.uid;
         userProfiles.push({
             id: authUser.uid,
@@ -159,17 +161,20 @@ async function seed() {
         console.log('✅ Batch committed successfully. Firestore has been seeded.');
     } catch (error) {
         console.error('❌ Error committing batch:', error);
-        process.exit(1);
+        throw error;
     }
 
     console.log('\n--- Seeding Complete! ---');
     console.log('You can now log in with the following credentials (password is "password123" for all):');
     usersRaw.forEach(user => console.log(`- ${user.email}`));
     
-    process.exit(0);
 }
 
-seed().catch(error => {
+seed().then(() => {
+    process.exit(0);
+}).catch(error => {
     console.error("An unexpected error occurred during the seeding process:", error);
     process.exit(1);
 });
+
+    
