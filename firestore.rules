@@ -6,7 +6,8 @@ service cloud.firestore {
     
     // Helper function to get a user's role from their profile
     function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+      let userDoc = get(/databases/$(database)/documents/users/$(userId));
+      return userDoc.data.role;
     }
 
     // Helper function to check if a user is an admin
@@ -14,11 +15,11 @@ service cloud.firestore {
       return getUserRole(request.auth.uid) == 'Admin';
     }
 
-    // Helper function to check if a user is a member of an initiative
-    function isInitiativeMember(initiativeId) {
-      let initiative = get(/databases/$(database)/documents/initiatives/$(initiativeId)).data;
-      // CORRECT: Use `in list` to check for existence in an array
-      return request.auth.uid in initiative.leadIds || request.auth.uid in initiative.teamMemberIds || isAdmin();
+    // Helper function to check if a user is a member of an initiative from a resource
+    function isInitiativeMember(initiativeData) {
+      return request.auth.uid in initiativeData.leadIds || 
+             request.auth.uid in initiativeData.teamMemberIds || 
+             isAdmin();
     }
 
     // Default deny all
@@ -30,8 +31,7 @@ service cloud.firestore {
     // Restrict updates to the user themselves or an admin.
     match /users/{userId} {
       allow read: if request.auth.uid != null;
-      allow update: if request.auth.uid == userId || isAdmin();
-      allow create: if request.auth.uid != null;
+      allow update, create: if request.auth.uid == userId || isAdmin();
     }
 
     // Allow authenticated users to read/write master data
@@ -44,21 +44,25 @@ service cloud.firestore {
 
     // Rules for initiatives and their subcollections
     match /initiatives/{initiativeId} {
-      // Allow authenticated users to list initiatives, but only members can read/write specific ones.
+      // Allow authenticated users to list initiatives for the main page.
+      // Detailed read/write is checked below.
       allow list: if request.auth.uid != null;
-      allow read, write: if isInitiativeMember(initiativeId);
+      
+      // Allow read/write only if the user is a member of the initiative.
+      // This rule now correctly uses the 'resource.data' available on read/write operations.
+      allow read, write: if isInitiativeMember(resource.data);
 
       // Tasks subcollection
       match /tasks/{taskId} {
-        allow read, write, list: if isInitiativeMember(initiativeId);
+        // Here we must use get() because the task document doesn't contain initiative membership.
+        allow read, write, list: if isInitiativeMember(get(/databases/$(database)/documents/initiatives/$(initiativeId)).data);
       }
       
       // Attachments subcollection
       match /attachments/{attachmentId} {
-        allow read, write, list: if isInitiativeMember(initiativeId);
+         // Here we must use get() because the attachment document doesn't contain initiative membership.
+        allow read, write, list: if isInitiativeMember(get(/databases/$(database)/documents/initiatives/$(initiativeId)).data);
       }
-
-      // other subcollections can be added here
     }
   }
 }
@@ -66,6 +70,11 @@ service cloud.firestore {
 service firebase.storage {
   match /b/{bucket}/o {
     // Allow members of an initiative to read/write to that initiative's attachment folder
+    function isInitiativeMember(initiativeId) {
+      let initiative = get(/databases/$(database)/documents/initiatives/$(initiativeId)).data;
+      return request.auth.uid in initiative.leadIds || request.auth.uid in initiative.teamMemberIds || isAdmin();
+    }
+    
     match /initiatives/{initiativeId}/attachments/{allPaths=**} {
        allow read, write: if isInitiativeMember(initiativeId);
     }
