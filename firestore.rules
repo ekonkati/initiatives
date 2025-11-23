@@ -46,9 +46,9 @@ service cloud.firestore {
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow read access to all files for authenticated users
-    // Allow write access only to the specific path for initiative attachments
-    match /initiatives/{initiativeId}/attachments/{fileName} {
+    // Allow read and write access to any file within an initiative's attachment folder
+    // for any authenticated user.
+    match /initiatives/{initiativeId}/attachments/{allPaths=**} {
       allow read, write: if request.auth != null;
     }
   }
