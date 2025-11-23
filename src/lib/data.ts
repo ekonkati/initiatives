@@ -44,7 +44,10 @@ export const useInitiative = (id: string | undefined) => {
     const { data, isLoading, error } = useDoc<Initiative>(docRef);
 
     // The overall loading state depends on both the document fetch AND the user auth check.
-    return { data, isLoading: isLoading || isUserLoading, error };
+    // We are only truly "done" loading when both are no longer in a loading state.
+    const combinedIsLoading = isLoading || isUserLoading;
+
+    return { data, isLoading: combinedIsLoading, error };
 };
 
 

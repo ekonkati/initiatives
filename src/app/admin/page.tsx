@@ -515,6 +515,3 @@ function MasterDataFormDialog({ item, title, description, onSubmit, onClose }: M
         </DialogContent>
     );
 }
-    
-
-    

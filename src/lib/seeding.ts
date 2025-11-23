@@ -230,5 +230,3 @@ export async function runSeed(db: Firestore, auth: Auth) {
 
     console.log('\n--- Seeding Complete! ---');
 }
-
-    
