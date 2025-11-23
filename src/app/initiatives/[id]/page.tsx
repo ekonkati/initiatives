@@ -26,11 +26,11 @@ const RAG_MAP: Record<RAGStatus, string> = {
   Green: 'border-green-500 text-green-500',
 };
 
-export default function InitiativeDetailPage({ params }: { params: { id: string } }) {
-    const { data: initiative, isLoading: isLoadingInitiative } = useInitiative(params.id);
+export default function InitiativeDetailPage({ params: { id } }: { params: { id: string } }) {
+    const { data: initiative, isLoading: isLoadingInitiative } = useInitiative(id);
     const { data: allUsersData } = useUsers();
-    const { data: tasksData } = useTasksForInitiative(params.id);
-    const { data: attachmentsData } = useAttachments(params.id);
+    const { data: tasksData } = useTasksForInitiative(id);
+    const { data: attachmentsData } = useAttachments(id);
     
     const userMap = useMemo(() => {
         if (!allUsersData) return {};
