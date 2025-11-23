@@ -35,10 +35,11 @@ export const useInitiatives = () => {
 
 export const useInitiative = (id: string | undefined) => {
     const firestore = useFirestore();
-    const { user, isUserLoading: isAuthLoading } = useAuthUser();
-    const docRef = useMemoFirebase(() => (id && user ? doc(firestore, 'initiatives', id) : null), [firestore, id, user]);
-    const { data, isLoading: isDocLoading, error } = useDoc<Initiative>(docRef);
-    return { data, isLoading: isAuthLoading || isDocLoading, error };
+    // Correctly create the docRef as soon as the id is available.
+    // The security of the data is handled by Firestore rules, not by delaying the fetch.
+    const docRef = useMemoFirebase(() => (id ? doc(firestore, 'initiatives', id) : null), [firestore, id]);
+    const { data, isLoading, error } = useDoc<Initiative>(docRef);
+    return { data, isLoading, error };
 };
 
 

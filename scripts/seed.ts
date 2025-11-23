@@ -94,15 +94,6 @@ async function deleteCollection(db: any, collectionPath: string) {
 
     await batch.commit();
     console.log(`- Successfully deleted ${snapshot.size} documents from '${collectionPath}'.`);
-
-    // It's possible for a collection to have subcollections.
-    // This is a simple recursive approach to delete them.
-    for (const doc of snapshot.docs) {
-        const subcollections = await doc.ref.listCollections();
-        for (const sub of subcollections) {
-            await deleteCollection(db, `${doc.ref.path}/${sub.id}`);
-        }
-    }
 }
 
 
@@ -116,11 +107,11 @@ async function seed() {
 
     console.log('Deleting previous data...');
     try {
+        // Delete all collections to ensure a clean slate
         await deleteCollection(db, 'users');
-        await deleteCollection(db, 'initiatives');
+        await deleteCollection(db, 'initiatives'); // Deleting parent collection also deletes subcollections
         await deleteCollection(db, 'departments');
         await deleteCollection(db, 'designations');
-        // Note: Subcollections like tasks and attachments are automatically deleted when their parent initiative is.
     } catch (error) {
         console.error('Halting seed script due to error during data deletion:', error);
         return;
@@ -196,47 +187,43 @@ async function seed() {
             teamMemberIds: initRaw.teamMemberIds.map(tempId => userIdMap[tempId]).filter(Boolean),
         };
         batch.set(initiativeRef, mappedInitiative);
+
+        // Seed sub-collections for each initiative
+        const tasksForInitiative = tasksRaw.filter(t => t.initiativeId === initRaw.id);
+        tasksForInitiative.forEach(taskRaw => {
+            const ownerId = userIdMap[taskRaw.ownerId];
+            if (ownerId) {
+                const taskRef = doc(db, 'initiatives', initRaw.id, 'tasks', taskRaw.id);
+                batch.set(taskRef, { ...taskRaw, ownerId, contributorIds: [] });
+            } else {
+                 console.warn(`- Skipping task "${taskRaw.title}" due to missing owner mapping.`);
+            }
+        });
+
+        const attachmentsForInitiative = attachmentsRaw.filter(a => a.initiativeId === initRaw.id);
+        attachmentsForInitiative.forEach(attRaw => {
+            const uploadedBy = userIdMap[attRaw.uploadedBy];
+            if (uploadedBy) {
+                const attRef = doc(db, 'initiatives', initRaw.id, 'attachments', attRaw.id);
+                batch.set(attRef, { ...attRaw, uploadedBy });
+            } else {
+                console.warn(`- Skipping attachment "${attRaw.fileName}" due to missing uploader mapping.`);
+            }
+        });
     });
-    console.log('Initiatives added to batch.');
+    console.log('Initiatives and their subcollections added to batch.');
+
+    // 5. Commit the main batch for users and initiatives
+    try {
+        await batch.commit();
+        console.log('✅ Main batch (users, initiatives, subcollections) committed successfully.');
+    } catch (error) {
+        console.error('❌ Error committing main batch:', error);
+        throw error;
+    }
 
 
-    // 5. Seed Tasks with mapped UIDs
-    console.log('Seeding tasks with mapped user UIDs...');
-    const tasks = tasksRaw.map(task => ({
-        ...task,
-        ownerId: userIdMap[task.ownerId],
-        contributorIds: [], // Assuming no contributors for now
-    }));
-
-    tasks.forEach(task => {
-        if (task.ownerId) { // Ensure ownerId was found
-            const taskRef = doc(db, 'initiatives', task.initiativeId, 'tasks', task.id);
-            batch.set(taskRef, task);
-        } else {
-            console.warn(`- Skipping task "${task.title}" due to missing owner mapping.`);
-        }
-    });
-    console.log('Tasks added to batch.');
-
-
-    // 6. Seed Attachments with mapped UIDs
-    console.log('Seeding attachments with mapped user UIDs...');
-    const attachments = attachmentsRaw.map(att => ({
-        ...att,
-        uploadedBy: userIdMap[att.uploadedBy],
-    }));
-
-    attachments.forEach(attachment => {
-        if (attachment.uploadedBy) { // Ensure uploadedBy was found
-            const attachmentRef = doc(db, 'initiatives', attachment.initiativeId, 'attachments', attachment.id);
-            batch.set(attachmentRef, attachment);
-        } else {
-            console.warn(`- Skipping attachment "${attachment.fileName}" due to missing uploader mapping.`);
-        }
-    });
-    console.log('Attachments added to batch.');
-
-    // 7. Seed Departments and Designations (not in a batch, can be simple adds)
+    // 6. Seed Departments and Designations (using simple adds as they are independent)
     console.log('Seeding departments...');
     for (const dept of departmentsRaw) {
         await addDoc(collection(db, 'departments'), dept);
@@ -249,15 +236,6 @@ async function seed() {
     }
     console.log(`${designationsRaw.length} designations seeded.`);
 
-
-    // 8. Commit the main batch
-    try {
-        await batch.commit();
-        console.log('✅ Batch committed successfully. Firestore has been seeded.');
-    } catch (error) {
-        console.error('❌ Error committing batch:', error);
-        throw error;
-    }
 
     console.log('\n--- Seeding Complete! ---');
     console.log('You can now log in with the following credentials (password is "password123" for all):');
