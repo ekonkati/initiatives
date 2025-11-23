@@ -50,13 +50,11 @@ export interface Task {
 
 export interface Attachment {
   id: string;
-  type: 'initiative' | 'task';
   initiativeId: string;
-  taskId?: string;
   fileName: string;
   fileType: string;
-  driveFileId: string;
-  driveUrl: string;
+  storagePath: string; // Firebase Storage path
+  downloadUrl: string; // Firebase Storage download URL
   uploadedBy: string; // user ID
   uploadedAt: string;
 }
@@ -108,5 +106,3 @@ export interface Designation {
     id: string;
     name: string;
 }
-
-    

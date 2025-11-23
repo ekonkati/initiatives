@@ -11,14 +11,22 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useInitiative, useTasksForInitiative, useUsers, useAttachments } from "@/lib/data";
-import { RAGStatus, Task, User } from "@/lib/types";
+import { RAGStatus, Task, User, Attachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { ChevronLeft, Clock, File, GanttChartSquare, Pencil, Star, Upload } from "lucide-react";
+import { ChevronLeft, Clock, File, FilePen, GanttChartSquare, Pencil, Star, Trash2, Upload } from "lucide-react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
+import { useFirestore, useUser as useAuthUser, useStorage } from "@/firebase";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { addDoc, collection, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const RAG_MAP: Record<RAGStatus, string> = {
   Red: 'border-red-500 text-red-500',
@@ -33,7 +41,7 @@ export default function InitiativeDetailPage() {
     const { data: initiative, isLoading: isLoadingInitiative, error } = useInitiative(id);
     const { data: allUsersData } = useUsers();
     const { data: tasksData } = useTasksForInitiative(id);
-    const { data: attachmentsData } = useAttachments(id);
+    const { data: attachmentsData, isLoading: isLoadingAttachments } = useAttachments(id);
     
     const userMap = useMemo(() => {
         if (!allUsersData) return {};
@@ -214,31 +222,12 @@ export default function InitiativeDetailPage() {
                     </TabsContent>
 
                     <TabsContent value="documents">
-                        <Card>
-                            <CardHeader className="flex flex-row items-center justify-between">
-                                <div>
-                                    <CardTitle>Documents</CardTitle>
-                                    <CardDescription>Files and documents attached to this initiative.</CardDescription>
-                                </div>
-                                <Button><Upload className="mr-2 h-4 w-4" /> Attach File</Button>
-                            </CardHeader>
-                            <CardContent>
-                                <ul className="space-y-2">
-                                    {attachments.map(att => (
-                                        <li key={att.id} className="flex items-center justify-between rounded-md border p-3">
-                                            <div className="flex items-center gap-3">
-                                                <File className="h-6 w-6 text-muted-foreground" />
-                                                <div>
-                                                    <a href={att.driveUrl} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">{att.fileName}</a>
-                                                    <p className="text-sm text-muted-foreground">Uploaded by {userMap[att.uploadedBy]?.name} on {format(new Date(att.uploadedAt), "MM/dd/yyyy")}</p>
-                                                </div>
-                                            </div>
-                                            <Badge variant="outline">{att.fileType}</Badge>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </CardContent>
-                        </Card>
+                        <AttachmentManager 
+                            initiativeId={id} 
+                            attachments={attachments} 
+                            userMap={userMap} 
+                            isLoading={isLoadingAttachments} 
+                        />
                     </TabsContent>
 
                     <TabsContent value="ratings">
@@ -297,4 +286,242 @@ function RatingChart() {
             </BarChart>
         </ResponsiveContainer>
     )
+}
+
+
+// Attachment Components
+
+interface AttachmentManagerProps {
+    initiativeId: string;
+    attachments: Attachment[];
+    userMap: Record<string, User>;
+    isLoading: boolean;
+}
+
+function AttachmentManager({ initiativeId, attachments, userMap, isLoading }: AttachmentManagerProps) {
+    const [isUploadOpen, setUploadOpen] = useState(false);
+    const [isRenameOpen, setRenameOpen] = useState(false);
+    const [isDeleteOpen, setDeleteOpen] = useState(false);
+    const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
+
+    return (
+        <>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Documents</CardTitle>
+                        <CardDescription>Files and documents attached to this initiative.</CardDescription>
+                    </div>
+                    <Button onClick={() => setUploadOpen(true)}><Upload className="mr-2 h-4 w-4" /> Attach File</Button>
+                </CardHeader>
+                <CardContent>
+                    {isLoading ? <p>Loading documents...</p> :
+                        <ul className="space-y-2">
+                            {attachments.map(att => (
+                                <li key={att.id} className="flex items-center justify-between rounded-md border p-3">
+                                    <div className="flex items-center gap-3">
+                                        <File className="h-6 w-6 text-muted-foreground" />
+                                        <div>
+                                            <a href={att.downloadUrl} target="_blank" rel="noopener noreferrer" className="font-medium hover:underline">{att.fileName}</a>
+                                            <p className="text-sm text-muted-foreground">Uploaded by {userMap[att.uploadedBy]?.name} on {format(new Date(att.uploadedAt), "MM/dd/yyyy")}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline">{att.fileType}</Badge>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent>
+                                                <DropdownMenuItem onClick={() => { setSelectedAttachment(att); setRenameOpen(true); }}>Rename</DropdownMenuItem>
+                                                <DropdownMenuItem className="text-red-500" onClick={() => { setSelectedAttachment(att); setDeleteOpen(true); }}>Delete</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    }
+                </CardContent>
+            </Card>
+
+            <UploadAttachmentDialog open={isUploadOpen} onOpenChange={setUploadOpen} initiativeId={initiativeId} />
+            
+            {selectedAttachment && (
+                <>
+                    <RenameAttachmentDialog open={isRenameOpen} onOpenChange={setRenameOpen} attachment={selectedAttachment} />
+                    <DeleteAttachmentDialog open={isDeleteOpen} onOpenChange={setDeleteOpen} attachment={selectedAttachment} />
+                </>
+            )}
+        </>
+    );
+}
+
+function UploadAttachmentDialog({ open, onOpenChange, initiativeId }: { open: boolean, onOpenChange: (open: boolean) => void, initiativeId: string }) {
+    const [file, setFile] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const storage = useStorage();
+    const firestore = useFirestore();
+    const { user } = useAuthUser();
+    const { toast } = useToast();
+
+    const handleUpload = async () => {
+        if (!file || !user) return;
+
+        setIsUploading(true);
+        const storagePath = `initiatives/${initiativeId}/attachments/${file.name}`;
+        const storageRef = ref(storage, storagePath);
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        uploadTask.on('state_changed',
+            (snapshot) => {
+                const prog = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+                setProgress(prog);
+            },
+            (error) => {
+                console.error("Upload error", error);
+                toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+                setIsUploading(false);
+            },
+            async () => {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                const attachmentsCol = collection(firestore, `initiatives/${initiativeId}/attachments`);
+
+                await addDoc(attachmentsCol, {
+                    initiativeId,
+                    fileName: file.name,
+                    fileType: file.type || 'unknown',
+                    storagePath,
+                    downloadUrl: downloadURL,
+                    uploadedBy: user.uid,
+                    uploadedAt: new Date().toISOString(),
+                });
+
+                toast({ title: "Upload Complete", description: `${file.name} has been attached.` });
+                setIsUploading(false);
+                setFile(null);
+                onOpenChange(false);
+            }
+        );
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Attach a New File</DialogTitle>
+                    <DialogDescription>Select a file from your device to upload to this initiative.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid w-full max-w-sm items-center gap-1.5">
+                        <Label htmlFor="file">File</Label>
+                        <Input id="file" type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                    </div>
+                    {isUploading && (
+                        <div className="flex items-center gap-2">
+                            <Progress value={progress} className="w-full" />
+                            <span>{progress}%</span>
+                        </div>
+                    )}
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isUploading}>Cancel</Button>
+                    <Button onClick={handleUpload} disabled={!file || isUploading}>
+                        {isUploading ? "Uploading..." : "Upload"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function RenameAttachmentDialog({ open, onOpenChange, attachment }: { open: boolean, onOpenChange: (open: boolean) => void, attachment: Attachment }) {
+    const [newName, setNewName] = useState(attachment.fileName);
+    const [isRenaming, setIsRenaming] = useState(false);
+    const firestore = useFirestore();
+    const { toast } = useToast();
+
+    const handleRename = async () => {
+        if (!newName || newName === attachment.fileName) {
+            onOpenChange(false);
+            return;
+        }
+        setIsRenaming(true);
+        const docRef = doc(firestore, `initiatives/${attachment.initiativeId}/attachments`, attachment.id);
+        try {
+            await updateDoc(docRef, { fileName: newName });
+            toast({ title: "File Renamed", description: `Renamed to ${newName}.` });
+            onOpenChange(false);
+        } catch (error: any) {
+            console.error("Rename failed:", error);
+            toast({ title: "Rename Failed", description: error.message, variant: "destructive" });
+        } finally {
+            setIsRenaming(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Rename File</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <Label htmlFor="fileName">File Name</Label>
+                    <Input id="fileName" value={newName} onChange={(e) => setNewName(e.target.value)} />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isRenaming}>Cancel</Button>
+                    <Button onClick={handleRename} disabled={isRenaming}>{isRenaming ? "Renaming..." : "Save"}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function DeleteAttachmentDialog({ open, onOpenChange, attachment }: { open: boolean, onOpenChange: (open: boolean) => void, attachment: Attachment }) {
+    const [isDeleting, setIsDeleting] = useState(false);
+    const firestore = useFirestore();
+    const storage = useStorage();
+    const { toast } = useToast();
+
+    const handleDelete = async () => {
+        setIsDeleting(true);
+        const docRef = doc(firestore, `initiatives/${attachment.initiativeId}/attachments`, attachment.id);
+        const storageRef = ref(storage, attachment.storagePath);
+        try {
+            // Delete from Storage first, then Firestore
+            await deleteObject(storageRef);
+            await deleteDoc(docRef);
+            toast({ title: "File Deleted", description: `${attachment.fileName} has been deleted.` });
+            onOpenChange(false);
+        } catch (error: any) {
+            console.error("Delete failed:", error);
+            // If storage delete fails, don't delete from firestore.
+            // If firestore delete fails, we have an orphaned file in storage. Needs manual cleanup plan.
+            toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Are you sure?</DialogTitle>
+                    <DialogDescription>This will permanently delete <span className="font-semibold">{attachment.fileName}</span>. This action cannot be undone.</DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isDeleting}>Cancel</Button>
+                    <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+                        {isDeleting ? "Deleting..." : "Delete"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
 }

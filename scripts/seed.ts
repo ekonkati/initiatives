@@ -45,8 +45,7 @@ const tasksRaw = [
 ];
 
 const attachmentsRaw = [
-  { id: '1', type: 'initiative', initiativeId: '1', fileName: 'Digital Transformation Vision.docx', fileType: 'docx', driveFileId: '123', driveUrl: '#', uploadedBy: 'user-1', uploadedAt: '2024-02-05T00:00:00Z' },
-  { id: '2', type: 'initiative', initiativeId: '2', fileName: 'Market Research Report - SEA.pdf', fileType: 'pdf', driveFileId: '456', driveUrl: '#', uploadedBy: 'user-3', uploadedAt: '2024-05-12T00:00:00Z' },
+  // This data is now legacy. Attachments will be managed via the app UI.
 ];
 
 const departmentsRaw = [
@@ -188,14 +187,6 @@ async function seed() {
             if (ownerId) {
                 const taskRef = doc(db, 'initiatives', initRaw.id, 'tasks', taskRaw.id);
                 batch.set(taskRef, { ...taskRaw, ownerId, contributorIds: [] });
-            }
-        });
-
-        attachmentsRaw.filter(a => a.initiativeId === initRaw.id).forEach(attRaw => {
-            const uploadedBy = userIdMap[attRaw.uploadedBy];
-            if (uploadedBy) {
-                const attRef = doc(db, 'initiatives', initRaw.id, 'attachments', attRaw.id);
-                batch.set(attRef, { ...attRaw, uploadedBy });
             }
         });
     });
