@@ -2,7 +2,7 @@
 
 'use client'
 
-import { collection, query, where, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useUser as useAuthUser } from '@/firebase';
 import { useCollection, useDoc } from '@/firebase';
 import { type User, type Initiative, type Task, type Attachment, type DailyCheckin, type InitiativeRating, type UserRating, type Department, type Designation } from './types';
@@ -35,9 +35,16 @@ export const useInitiatives = () => {
 
 export const useInitiative = (id: string | undefined) => {
     const firestore = useFirestore();
+    const { isUserLoading } = useAuthUser();
+    
+    // The query should not depend on the user being loaded, only on the ID.
+    // Firestore security rules will handle permissions.
     const docRef = useMemoFirebase(() => (id ? doc(firestore, 'initiatives', id) : null), [firestore, id]);
+    
     const { data, isLoading, error } = useDoc<Initiative>(docRef);
-    return { data, isLoading, error };
+
+    // The overall loading state depends on both the document fetch AND the user auth check.
+    return { data, isLoading: isLoading || isUserLoading, error };
 };
 
 
@@ -71,29 +78,38 @@ export const useTasksForUser = (userId: string | undefined) => {
             return;
         }
         
-        // This could be optimized in a real app, e.g. with a collectionGroup query
-        // but for this prototype, we query each initiative's task subcollection.
+        let activeListeners = initiativeIds.length;
+        const allTasks: Record<string, Task> = {};
+        
         const unsubscribes = initiativeIds.map(initiativeId => {
             const tasksCollection = collection(firestore, 'initiatives', initiativeId, 'tasks');
             const q = query(tasksCollection, where('ownerId', '==', userId));
             
             return onSnapshot(q, (snapshot) => {
-                const newTasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
-                setTasks(prevTasks => {
-                    // Simple merge: remove old tasks for this initiative and add new ones
-                    const otherTasks = prevTasks.filter(t => t.initiativeId !== initiativeId);
-                    return [...otherTasks, ...newTasks];
+                snapshot.docChanges().forEach((change) => {
+                     if (change.type === "removed") {
+                        delete allTasks[change.doc.id];
+                    } else {
+                        allTasks[change.doc.id] = { id: change.doc.id, ...change.doc.data() } as Task;
+                    }
                 });
-                // Note: We don't set loading to false here, as other queries might be running.
+                setTasks(Object.values(allTasks));
+
             }, (err) => {
                 console.error(`Error fetching tasks for initiative ${initiativeId}:`, err);
-                setError(err); // Or handle errors more gracefully
+                setError(err); 
+                activeListeners--;
+                 if (activeListeners === 0) {
+                    setIsLoading(false);
+                }
+            }, () => {
+                 activeListeners--;
+                 if (activeListeners === 0) {
+                    setIsLoading(false);
+                }
             });
         });
 
-        // Set loading to false once all listeners are attached.
-        // A more robust solution might use Promise.all or a counter.
-        setIsLoading(false);
 
         // Cleanup function
         return () => unsubscribes.forEach(unsub => unsub());
@@ -139,5 +155,3 @@ export const useDesignations = () => {
     const q = useMemoFirebase(() => query(collection(firestore, 'designations')), [firestore]);
     return useCollection<Designation>(q);
 };
-
-    

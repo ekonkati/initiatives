@@ -30,7 +30,7 @@ export default function InitiativeDetailPage() {
     const params = useParams();
     const id = params.id as string;
 
-    const { data: initiative, isLoading: isLoadingInitiative } = useInitiative(id);
+    const { data: initiative, isLoading: isLoadingInitiative, error } = useInitiative(id);
     const { data: allUsersData } = useUsers();
     const { data: tasksData } = useTasksForInitiative(id);
     const { data: attachmentsData } = useAttachments(id);
@@ -50,15 +50,20 @@ export default function InitiativeDetailPage() {
         return (
             <AppShell>
                 <Header />
-                <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
-                    <div>Loading...</div>
+                <main className="flex-1 flex items-center justify-center p-4">
+                    <div>Loading initiative details...</div>
                 </main>
             </AppShell>
         );
     }
+    
+    if (error) {
+        // This will be caught by the error boundary
+        throw error;
+    }
 
     if (!initiative) {
-        notFound();
+        return notFound();
     }
 
     return (

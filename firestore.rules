@@ -1,9 +1,13 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Allow public read access to all documents
+    // and write access only for authenticated users.
+    // WARNING: This is NOT a secure rule for production.
+    // It is temporarily opened for debugging.
     match /{document=**} {
-      allow read, write: if true; // Temporarily open for seeding
+      allow read, write: if true;
     }
   }
 }

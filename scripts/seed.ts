@@ -2,7 +2,7 @@
 /* eslint-disable no-console */
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, type User as AuthUser } from 'firebase/auth';
-import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc, query, WriteBatch, addDoc } from 'firebase/firestore';
+import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc, query, WriteBatch, addDoc, Firestore } from 'firebase/firestore';
 import { firebaseConfig } from '../src/firebase/config';
 import { PlaceHolderImages } from '../src/lib/placeholder-images';
 import { User } from '@/lib/types';
@@ -78,12 +78,12 @@ const designationsRaw = [
 
 // --- SCRIPT LOGIC ---
 
-async function deleteCollection(db: any, collectionPath: string) {
+async function deleteCollection(db: Firestore, collectionPath: string) {
     const q = query(collection(db, collectionPath));
     const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
-        console.log(`- Collection '${collectionPath}' is already empty. Skipping deletion.`);
+        console.log(`- Collection '${collectionPath}' is already empty.`);
         return;
     }
 
@@ -105,18 +105,18 @@ async function seed() {
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    console.log('Deleting previous data...');
+    console.log('STEP 1: Deleting previous data...');
     try {
         // Delete all collections to ensure a clean slate
+        await deleteCollection(db, 'initiatives'); // Deleting parent also deletes subcollections
         await deleteCollection(db, 'users');
-        await deleteCollection(db, 'initiatives'); // Deleting parent collection also deletes subcollections
         await deleteCollection(db, 'departments');
         await deleteCollection(db, 'designations');
     } catch (error) {
         console.error('Halting seed script due to error during data deletion:', error);
         return;
     }
-    console.log('Previous data deletion step completed.');
+    console.log('Previous data deleted successfully.');
 
 
     const imageMap = data.placeholderImages.reduce((acc, img) => {
@@ -124,38 +124,31 @@ async function seed() {
         return acc;
     }, {} as Record<string, string>);
 
-    // 1. Create Users in Firebase Auth and get their UIDs
-    console.log('Creating or verifying users in Firebase Authentication...');
+    // 2. Create Users in Firebase Auth and get their UIDs
+    console.log('\nSTEP 2: Creating authentication users...');
     const userIdMap: Record<string, string> = {}; // Map tempId to real UID
     const userProfiles: User[] = [];
 
     for (const user of usersRaw) {
         let authUser: AuthUser;
         try {
-            // Attempt to create the user
             const userCredential = await createUserWithEmailAndPassword(auth, user.email, 'password123');
             authUser = userCredential.user;
-            console.log(`- Created auth user: ${user.email} (UID: ${authUser.uid})`);
         } catch (error: any) {
             if (error.code === 'auth/email-already-in-use') {
-                // If user already exists, sign in to get their UID
-                console.log(`- User ${user.email} already exists. Signing in...`);
                 const userCredential = await signInWithEmailAndPassword(auth, user.email, 'password123');
                 authUser = userCredential.user;
-                console.log(`- Verified existing auth user: ${user.email} (UID: ${authUser.uid})`);
             } else {
-                // For other errors, log them and stop the script
                 console.error(`  - Error processing user ${user.email}:`, error.message);
                 throw error;
             }
         }
         
-        // Map the temporary ID to the real Firebase UID
         userIdMap[user.tempId] = authUser.uid;
+        console.log(`- Mapped ${user.email} (${user.tempId}) to UID: ${authUser.uid}`);
 
-        // Prepare the user profile for Firestore, using the real UID
         userProfiles.push({
-            id: authUser.uid, // Use the real UID
+            id: authUser.uid,
             name: user.name,
             email: user.email,
             role: user.role as User['role'],
@@ -165,87 +158,78 @@ async function seed() {
             photoUrl: imageMap[user.tempId] || `https://picsum.photos/seed/${authUser.uid}/40/40`,
         });
     }
+    console.log('Authentication users created and mapped.');
 
-    // 2. Create a batch for Firestore writes
+
+    // 3. Seed Firestore with all data in a single batch
+    console.log('\nSTEP 3: Seeding Firestore database...');
     const batch = writeBatch(db);
 
-    // 3. Seed User Profiles in Firestore with correct UIDs
-    console.log('Seeding user profiles into Firestore...');
+    // Add Users
     userProfiles.forEach(profile => {
-        const userRef = doc(db, 'users', profile.id); // Use the real UID as the document ID
+        const userRef = doc(db, 'users', profile.id);
         batch.set(userRef, profile);
     });
-    console.log('User profiles added to batch.');
-
-    // 4. Seed Initiatives with mapped UIDs
-    console.log('Seeding initiatives with mapped user UIDs...');
+    console.log(`- Added ${userProfiles.length} user profiles to the batch.`);
+    
+    // Add Initiatives and Subcollections
     initiativesRaw.forEach(initRaw => {
         const initiativeRef = doc(db, 'initiatives', initRaw.id);
         const mappedInitiative = {
             ...initRaw,
-            leadIds: initRaw.leadIds.map(tempId => userIdMap[tempId]).filter(Boolean), // Filter out any undefineds
+            leadIds: initRaw.leadIds.map(tempId => userIdMap[tempId]).filter(Boolean),
             teamMemberIds: initRaw.teamMemberIds.map(tempId => userIdMap[tempId]).filter(Boolean),
         };
         batch.set(initiativeRef, mappedInitiative);
 
-        // Seed sub-collections for each initiative
-        const tasksForInitiative = tasksRaw.filter(t => t.initiativeId === initRaw.id);
-        tasksForInitiative.forEach(taskRaw => {
+        // Seed sub-collections
+        tasksRaw.filter(t => t.initiativeId === initRaw.id).forEach(taskRaw => {
             const ownerId = userIdMap[taskRaw.ownerId];
             if (ownerId) {
                 const taskRef = doc(db, 'initiatives', initRaw.id, 'tasks', taskRaw.id);
                 batch.set(taskRef, { ...taskRaw, ownerId, contributorIds: [] });
-            } else {
-                 console.warn(`- Skipping task "${taskRaw.title}" due to missing owner mapping.`);
             }
         });
 
-        const attachmentsForInitiative = attachmentsRaw.filter(a => a.initiativeId === initRaw.id);
-        attachmentsForInitiative.forEach(attRaw => {
+        attachmentsRaw.filter(a => a.initiativeId === initRaw.id).forEach(attRaw => {
             const uploadedBy = userIdMap[attRaw.uploadedBy];
             if (uploadedBy) {
                 const attRef = doc(db, 'initiatives', initRaw.id, 'attachments', attRaw.id);
                 batch.set(attRef, { ...attRaw, uploadedBy });
-            } else {
-                console.warn(`- Skipping attachment "${attRaw.fileName}" due to missing uploader mapping.`);
             }
         });
     });
-    console.log('Initiatives and their subcollections added to batch.');
+    console.log(`- Added ${initiativesRaw.length} initiatives and their subcollections to the batch.`);
 
-    // 5. Commit the main batch for users and initiatives
+    // Add Departments
+    departmentsRaw.forEach(dept => {
+        const deptRef = doc(collection(db, 'departments'));
+        batch.set(deptRef, dept);
+    });
+    console.log(`- Added ${departmentsRaw.length} departments to the batch.`);
+
+    // Add Designations
+    designationsRaw.forEach(desig => {
+        const desigRef = doc(collection(db, 'designations'));
+        batch.set(desigRef, desig);
+    });
+    console.log(`- Added ${designationsRaw.length} designations to the batch.`);
+
+    // Commit the batch
     try {
         await batch.commit();
-        console.log('✅ Main batch (users, initiatives, subcollections) committed successfully.');
+        console.log('✅ Batch committed successfully.');
     } catch (error) {
-        console.error('❌ Error committing main batch:', error);
+        console.error('❌ Error committing batch:', error);
         throw error;
     }
-
-
-    // 6. Seed Departments and Designations (using simple adds as they are independent)
-    console.log('Seeding departments...');
-    for (const dept of departmentsRaw) {
-        await addDoc(collection(db, 'departments'), dept);
-    }
-    console.log(`${departmentsRaw.length} departments seeded.`);
-
-    console.log('Seeding designations...');
-    for (const desig of designationsRaw) {
-        await addDoc(collection(db, 'designations'), desig);
-    }
-    console.log(`${designationsRaw.length} designations seeded.`);
-
 
     console.log('\n--- Seeding Complete! ---');
     console.log('You can now log in with the following credentials (password is "password123" for all):');
     usersRaw.forEach(user => console.log(`- ${user.email}`));
-    
 }
 
 seed().catch(error => {
     console.error("An unexpected error occurred during the seeding process:", error);
     process.exit(1);
 });
-
-    
