@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ChevronLeft, Clock, File, GanttChartSquare, Star, Upload } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import React, { useMemo } from "react";
 
@@ -26,7 +26,10 @@ const RAG_MAP: Record<RAGStatus, string> = {
   Green: 'border-green-500 text-green-500',
 };
 
-export default function InitiativeDetailPage({ params: { id } }: { params: { id: string } }) {
+export default function InitiativeDetailPage() {
+    const params = useParams();
+    const id = params.id as string;
+
     const { data: initiative, isLoading: isLoadingInitiative } = useInitiative(id);
     const { data: allUsersData } = useUsers();
     const { data: tasksData } = useTasksForInitiative(id);
@@ -285,3 +288,5 @@ function RatingChart() {
         </ResponsiveContainer>
     )
 }
+
+    
