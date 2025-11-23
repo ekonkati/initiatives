@@ -17,10 +17,8 @@ service cloud.firestore {
     // Helper function to check if a user is a member of an initiative
     function isInitiativeMember(initiativeId) {
       let initiative = get(/databases/$(database)/documents/initiatives/$(initiativeId)).data;
-      // Ensure initiative data and member lists exist before checking
-      let leads = initiative.data.leadIds;
-      let members = initiative.data.teamMemberIds;
-      return request.auth.uid in leads || request.auth.uid in members || isAdmin();
+      // CORRECT: Use `in list` to check for existence in an array
+      return request.auth.uid in initiative.leadIds || request.auth.uid in initiative.teamMemberIds || isAdmin();
     }
 
     // Default deny all
