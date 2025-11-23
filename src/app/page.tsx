@@ -28,13 +28,13 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useInitiatives, useTasksForUser, useUser, useUsers } from '@/lib/data';
-import { type Task, type User, type Initiative } from '@/lib/types';
+import { type Task, type User, type Initiative, RAGStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useMemo } from 'react';
 import { useUser as useAuthUser } from '@/firebase';
 
-const RAG_MAP = {
+const RAG_MAP: Record<RAGStatus, string> = {
   Red: 'bg-red-500',
   Amber: 'bg-amber-500',
   Green: 'bg-green-500',
@@ -43,16 +43,16 @@ const RAG_MAP = {
 export default function DashboardPage() {
   const { user: authUser } = useAuthUser();
   const { data: currentUser } = useUser(authUser?.uid); 
-  const { data: myInitiativesData } = useInitiatives();
+  const { data: allInitiativesData } = useInitiatives();
   const { data: myTasksData } = useTasksForUser(currentUser?.id);
   const { data: allUsersData } = useUsers();
 
   const myInitiatives = useMemo(() => {
-    if (!myInitiativesData || !currentUser) return [];
-    return myInitiativesData.filter(
+    if (!allInitiativesData || !currentUser) return [];
+    return allInitiativesData.filter(
         (i) => i.leadIds.includes(currentUser.id) || i.teamMemberIds.includes(currentUser.id)
     );
-  }, [myInitiativesData, currentUser]);
+  }, [allInitiativesData, currentUser]);
   
   const myTasks = myTasksData || [];
 
@@ -135,6 +135,7 @@ export default function DashboardPage() {
                   <div className="flex items-center space-x-4">
                     <div className="flex -space-x-2 overflow-hidden">
                       {initiative.teamMemberIds.slice(0, 3).map((memberId) => (
+                        userMap[memberId] &&
                         <Avatar key={memberId} className="h-6 w-6 border-2 border-card">
                           <AvatarImage src={userMap[memberId]?.photoUrl} />
                           <AvatarFallback>{userMap[memberId]?.name.charAt(0)}</AvatarFallback>
@@ -179,7 +180,7 @@ export default function DashboardPage() {
             <CardDescription>Tasks assigned to you across all initiatives.</CardDescription>
           </CardHeader>
           <CardContent>
-            <TaskTable tasks={myTasks.slice(0, 5)} initiatives={myInitiativesData || []}/>
+            <TaskTable tasks={myTasks.slice(0, 5)} initiatives={allInitiativesData || []}/>
           </CardContent>
           <CardFooter className="justify-center border-t p-4">
             <Button size="sm" variant="ghost" className="w-full">
@@ -264,4 +265,3 @@ function TaskTable({ tasks, initiatives }: { tasks: Task[]; initiatives: Initiat
     </Table>
   );
 }
-
