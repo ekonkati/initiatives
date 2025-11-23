@@ -2,7 +2,7 @@
 /* eslint-disable no-console */
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, type User as AuthUser } from 'firebase/auth';
-import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc, query, WriteBatch } from 'firebase/firestore';
 import { firebaseConfig } from '../src/firebase/config';
 import { PlaceHolderImages } from '../src/lib/placeholder-images';
 import { User } from '@/lib/types';
@@ -53,24 +53,29 @@ const attachmentsRaw = [
 // --- SCRIPT LOGIC ---
 
 async function deleteCollection(db: any, collectionPath: string) {
-    const collectionRef = collection(db, collectionPath);
-    const querySnapshot = await getDocs(collectionRef);
-    if (querySnapshot.empty) {
+    const q = query(collection(db, collectionPath));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
         console.log(`- Collection '${collectionPath}' is already empty. Skipping deletion.`);
         return;
     }
 
     const batch = writeBatch(db);
-    querySnapshot.forEach(doc => {
+    snapshot.docs.forEach(doc => {
         batch.delete(doc.ref);
     });
 
-    try {
-        await batch.commit();
-        console.log(`- Successfully deleted ${querySnapshot.size} documents from '${collectionPath}'.`);
-    } catch (error) {
-        console.error(`- Error deleting documents from '${collectionPath}':`, error);
-        throw new Error(`Failed to delete collection ${collectionPath}`);
+    await batch.commit();
+    console.log(`- Successfully deleted ${snapshot.size} documents from '${collectionPath}'.`);
+
+    // It's possible for a collection to have subcollections.
+    // This is a simple recursive approach to delete them.
+    for (const doc of snapshot.docs) {
+        const subcollections = await doc.ref.listCollections();
+        for (const sub of subcollections) {
+            await deleteCollection(db, `${doc.ref.path}/${sub.id}`);
+        }
     }
 }
 
@@ -85,11 +90,11 @@ async function seed() {
 
     console.log('Deleting previous data...');
     try {
+        await deleteCollection(db, 'users');
         await deleteCollection(db, 'initiatives');
         // Note: Subcollections like tasks and attachments are automatically deleted when their parent initiative is.
-        // However, if you had top-level 'tasks' or 'attachments' collections, you'd call deleteCollection for them here.
     } catch (error) {
-        console.error('Halting seed script due to error during data deletion.');
+        console.error('Halting seed script due to error during data deletion:', error);
         return;
     }
     console.log('Previous data deletion step completed.');
