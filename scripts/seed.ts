@@ -2,7 +2,7 @@
 /* eslint-disable no-console */
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, type User as AuthUser } from 'firebase/auth';
-import { getFirestore, doc, writeBatch } from 'firebase/firestore';
+import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { firebaseConfig } from '../src/firebase/config';
 import { PlaceHolderImages } from '../src/lib/placeholder-images';
 import { User } from '@/lib/types';
@@ -52,6 +52,29 @@ const attachmentsRaw = [
 
 // --- SCRIPT LOGIC ---
 
+async function deleteCollection(db: any, collectionPath: string) {
+    const collectionRef = collection(db, collectionPath);
+    const querySnapshot = await getDocs(collectionRef);
+    if (querySnapshot.empty) {
+        console.log(`- Collection '${collectionPath}' is already empty. Skipping deletion.`);
+        return;
+    }
+
+    const batch = writeBatch(db);
+    querySnapshot.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    try {
+        await batch.commit();
+        console.log(`- Successfully deleted ${querySnapshot.size} documents from '${collectionPath}'.`);
+    } catch (error) {
+        console.error(`- Error deleting documents from '${collectionPath}':`, error);
+        throw new Error(`Failed to delete collection ${collectionPath}`);
+    }
+}
+
+
 async function seed() {
     console.log('--- Firebase Seeding Script ---');
 
@@ -59,6 +82,18 @@ async function seed() {
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
+
+    console.log('Deleting previous data...');
+    try {
+        await deleteCollection(db, 'initiatives');
+        // Note: Subcollections like tasks and attachments are automatically deleted when their parent initiative is.
+        // However, if you had top-level 'tasks' or 'attachments' collections, you'd call deleteCollection for them here.
+    } catch (error) {
+        console.error('Halting seed script due to error during data deletion.');
+        return;
+    }
+    console.log('Previous data deletion step completed.');
+
 
     const imageMap = data.placeholderImages.reduce((acc, img) => {
         acc[img.id] = img.imageUrl;
