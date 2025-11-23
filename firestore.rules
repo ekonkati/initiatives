@@ -1,13 +1,53 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow public read access to all documents
-    // and write access only for authenticated users.
-    // WARNING: This is NOT a secure rule for production.
-    // It is temporarily opened for debugging.
+    
+    // Default deny all
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+
+    // Allow authenticated users to read/write their own user document
+    match /users/{userId} {
+      allow read, update: if request.auth.uid == userId;
+      allow create: if request.auth.uid != null;
+    }
+
+    // Allow authenticated users to read master data
+    match /departments/{departmentId} {
+      allow read, write: if request.auth.uid != null;
+    }
+     match /designations/{designationId} {
+      allow read, write: if request.auth.uid != null;
+    }
+
+    // Rules for initiatives and their subcollections
+    match /initiatives/{initiativeId} {
+      allow read, write: if request.auth.uid != null; // Simplified for now
+
+      // Tasks subcollection
+      match /tasks/{taskId} {
+        allow read, write: if request.auth.uid != null;
+      }
+      
+      // Attachments subcollection
+      match /attachments/{attachmentId} {
+        allow read, write: if request.auth.uid != null;
+      }
+
+      // other subcollections can be added here
+    }
+  }
+}
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow read access to all files for authenticated users
+    // Allow write access only to the specific path for initiative attachments
+    match /initiatives/{initiativeId}/attachments/{fileName} {
+      allow read, write: if request.auth != null;
     }
   }
 }

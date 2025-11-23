@@ -11,10 +11,10 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useInitiative, useTasksForInitiative, useUsers, useAttachments } from "@/lib/data";
-import { RAGStatus, Task, User, Attachment } from "@/lib/types";
+import { RAGStatus, Task, User, Attachment, TaskStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { ChevronLeft, Clock, File, FilePen, GanttChartSquare, Pencil, Star, Trash2, Upload } from "lucide-react";
+import { ChevronLeft, Clock, File, GanttChartSquare, Pencil, PlusCircle, Star, Trash2, Upload, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -25,8 +25,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
-import { addDoc, collection, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { addDoc, collection, doc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const RAG_MAP: Record<RAGStatus, string> = {
   Red: 'border-red-500 text-red-500',
@@ -39,8 +48,8 @@ export default function InitiativeDetailPage() {
     const id = params.id as string;
 
     const { data: initiative, isLoading: isLoadingInitiative, error } = useInitiative(id);
-    const { data: allUsersData } = useUsers();
-    const { data: tasksData } = useTasksForInitiative(id);
+    const { data: allUsersData, isLoading: isLoadingUsers } = useUsers();
+    const { data: tasksData, isLoading: isLoadingTasks } = useTasksForInitiative(id);
     const { data: attachmentsData, isLoading: isLoadingAttachments } = useAttachments(id);
     
     const userMap = useMemo(() => {
@@ -53,8 +62,11 @@ export default function InitiativeDetailPage() {
 
     const tasks = tasksData || [];
     const attachments = attachmentsData || [];
+    const users = allUsersData || [];
 
-    if (isLoadingInitiative) {
+    const isLoading = isLoadingInitiative || isLoadingUsers || isLoadingTasks || isLoadingAttachments;
+
+    if (isLoading) {
         return (
             <AppShell>
                 <Header />
@@ -181,44 +193,12 @@ export default function InitiativeDetailPage() {
                     </TabsContent>
 
                      <TabsContent value="tasks">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Tasks</CardTitle>
-                                <CardDescription>All tasks associated with this initiative.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>Task</TableHead>
-                                            <TableHead>Owner</TableHead>
-                                            <TableHead>Due Date</TableHead>
-                                            <TableHead>Progress</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {tasks.map(task => (
-                                            <TableRow key={task.id}>
-                                                <TableCell><Badge variant="outline">{task.status}</Badge></TableCell>
-                                                <TableCell className="font-medium">{task.title}</TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <Avatar className="h-6 w-6">
-                                                          <AvatarImage src={userMap[task.ownerId]?.photoUrl} />
-                                                          <AvatarFallback>{userMap[task.ownerId]?.name.charAt(0)}</AvatarFallback>
-                                                        </Avatar>
-                                                        <span>{userMap[task.ownerId]?.name}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>{format(new Date(task.dueDate), "MM/dd/yyyy")}</TableCell>
-                                                <TableCell><Progress value={task.progress} className="h-2" /></TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </CardContent>
-                        </Card>
+                        <TaskManager 
+                            initiativeId={id}
+                            tasks={tasks}
+                            users={users}
+                            userMap={userMap}
+                        />
                     </TabsContent>
 
                     <TabsContent value="documents">
@@ -287,7 +267,6 @@ function RatingChart() {
         </ResponsiveContainer>
     )
 }
-
 
 // Attachment Components
 
@@ -372,7 +351,7 @@ function UploadAttachmentDialog({ open, onOpenChange, initiativeId }: { open: bo
         if (!file || !user) return;
 
         setIsUploading(true);
-        const storagePath = `initiatives/${initiativeId}/attachments/${file.name}`;
+        const storagePath = `initiatives/${initiativeId}/attachments/${Date.now()}-${file.name}`;
         const storageRef = ref(storage, storagePath);
         const uploadTask = uploadBytesResumable(storageRef, file);
 
@@ -493,15 +472,12 @@ function DeleteAttachmentDialog({ open, onOpenChange, attachment }: { open: bool
         const docRef = doc(firestore, `initiatives/${attachment.initiativeId}/attachments`, attachment.id);
         const storageRef = ref(storage, attachment.storagePath);
         try {
-            // Delete from Storage first, then Firestore
             await deleteObject(storageRef);
             await deleteDoc(docRef);
             toast({ title: "File Deleted", description: `${attachment.fileName} has been deleted.` });
             onOpenChange(false);
         } catch (error: any) {
             console.error("Delete failed:", error);
-            // If storage delete fails, don't delete from firestore.
-            // If firestore delete fails, we have an orphaned file in storage. Needs manual cleanup plan.
             toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
         } finally {
             setIsDeleting(false);
@@ -525,3 +501,254 @@ function DeleteAttachmentDialog({ open, onOpenChange, attachment }: { open: bool
         </Dialog>
     );
 }
+
+
+// Task Components
+
+const taskFormSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  ownerId: z.string().min(1, "Owner is required"),
+  status: z.nativeEnum(TaskStatus),
+  dueDate: z.date({ required_error: "Due date is required" }),
+});
+
+type TaskFormValues = z.infer<typeof taskFormSchema>;
+
+interface TaskManagerProps {
+    initiativeId: string;
+    tasks: Task[];
+    users: User[];
+    userMap: Record<string, User>;
+}
+
+function TaskManager({ initiativeId, tasks, users, userMap }: TaskManagerProps) {
+    const [isTaskFormOpen, setTaskFormOpen] = useState(false);
+    const [editingTask, setEditingTask] = useState<Task | null>(null);
+    const firestore = useFirestore();
+    const { toast } = useToast();
+
+    const handleAddNewTask = () => {
+        setEditingTask(null);
+        setTaskFormOpen(true);
+    };
+
+    const handleEditTask = (task: Task) => {
+        setEditingTask(task);
+        setTaskFormOpen(true);
+    };
+
+    const handleDeleteTask = async (taskId: string) => {
+        if (!confirm("Are you sure you want to delete this task?")) return;
+        try {
+            await deleteDoc(doc(firestore, 'initiatives', initiativeId, 'tasks', taskId));
+            toast({ title: "Task Deleted", description: "The task has been removed." });
+        } catch (error: any) {
+            toast({ title: "Error", description: `Could not delete task: ${error.message}`, variant: "destructive" });
+        }
+    };
+
+    const onTaskFormSubmit = async (values: TaskFormValues) => {
+        try {
+            if (editingTask) {
+                const taskRef = doc(firestore, 'initiatives', initiativeId, 'tasks', editingTask.id);
+                await updateDoc(taskRef, { ...values, dueDate: values.dueDate.toISOString() });
+                toast({ title: "Task Updated" });
+            } else {
+                const tasksCol = collection(firestore, 'initiatives', initiativeId, 'tasks');
+                await addDoc(tasksCol, {
+                    ...values,
+                    initiativeId,
+                    dueDate: values.dueDate.toISOString(),
+                    progress: 0,
+                    // createdAt: serverTimestamp(), // Requires modifying types
+                });
+                toast({ title: "Task Created" });
+            }
+            setTaskFormOpen(false);
+            setEditingTask(null);
+        } catch (error: any) {
+            toast({ title: "Error", description: `Could not save task: ${error.message}`, variant: "destructive" });
+        }
+    };
+
+    return (
+        <>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Tasks</CardTitle>
+                        <CardDescription>All tasks associated with this initiative.</CardDescription>
+                    </div>
+                    <Button onClick={handleAddNewTask}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Task
+                    </Button>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Task</TableHead>
+                                <TableHead>Owner</TableHead>
+                                <TableHead>Due Date</TableHead>
+                                <TableHead>Progress</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {tasks.map(task => (
+                                <TableRow key={task.id}>
+                                    <TableCell><Badge variant="outline">{task.status}</Badge></TableCell>
+                                    <TableCell className="font-medium">{task.title}</TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-2">
+                                            <Avatar className="h-6 w-6">
+                                                <AvatarImage src={userMap[task.ownerId]?.photoUrl} />
+                                                <AvatarFallback>{userMap[task.ownerId]?.name.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <span>{userMap[task.ownerId]?.name}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>{format(new Date(task.dueDate), "MM/dd/yyyy")}</TableCell>
+                                    <TableCell><Progress value={task.progress || 0} className="h-2" /></TableCell>
+                                    <TableCell className="text-right">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent>
+                                                <DropdownMenuItem onClick={() => handleEditTask(task)}>Edit</DropdownMenuItem>
+                                                <DropdownMenuItem className="text-red-500" onClick={() => handleDeleteTask(task.id)}>Delete</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+
+            <TaskFormDialog
+                key={editingTask ? editingTask.id : 'new'}
+                open={isTaskFormOpen}
+                onOpenChange={setTaskFormOpen}
+                onSubmit={onTaskFormSubmit}
+                task={editingTask}
+                users={users}
+            />
+        </>
+    );
+}
+
+interface TaskFormDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onSubmit: (values: TaskFormValues) => void;
+    task: Task | null;
+    users: User[];
+}
+
+function TaskFormDialog({ open, onOpenChange, onSubmit, task, users }: TaskFormDialogProps) {
+    const form = useForm<TaskFormValues>({
+        resolver: zodResolver(taskFormSchema),
+        defaultValues: {
+            title: task?.title || "",
+            description: task?.description || "",
+            ownerId: task?.ownerId || "",
+            status: task?.status || TaskStatus.NotStarted,
+            dueDate: task?.dueDate ? new Date(task.dueDate) : new Date(),
+        },
+    });
+
+    const title = task ? "Edit Task" : "Add New Task";
+    const description = task ? "Make changes to the task." : "Add a new task to this initiative.";
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[480px]">
+                <DialogHeader>
+                    <DialogTitle>{title}</DialogTitle>
+                    <DialogDescription>{description}</DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                        <FormField control={form.control} name="title" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Title</FormLabel>
+                                <FormControl><Input placeholder="Task title" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField control={form.control} name="description" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Description</FormLabel>
+                                <FormControl><Textarea placeholder="Describe the task" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField control={form.control} name="ownerId" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Owner</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Select an owner" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {users.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="status" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Status</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Select a status" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {Object.values(TaskStatus).map(status => <SelectItem key={status} value={status}>{status}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        </div>
+                        <FormField control={form.control} name="dueDate" render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel>Due Date</FormLabel>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button variant={"outline"} className={cn("w-[240px] pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                            <Button type="submit">Save Task</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+const TaskStatus = {
+    NotStarted: "Not Started",
+    InProgress: "In Progress",
+    Blocked: "Blocked",
+    Completed: "Completed",
+} as const;

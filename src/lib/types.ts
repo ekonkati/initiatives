@@ -37,13 +37,13 @@ export interface Task {
   id: string;
   initiativeId: string;
   title: string;
-  description: string;
+  description?: string;
   ownerId: string; // user ID
-  contributorIds: string[]; // array of user IDs
+  contributorIds?: string[]; // array of user IDs
   status: TaskStatus;
-  startDate: string;
+  startDate?: string;
   dueDate: string;
-  progress: number;
+  progress?: number;
   effortEstimate?: number; // in hours
   dependencyIds?: string[];
 }
