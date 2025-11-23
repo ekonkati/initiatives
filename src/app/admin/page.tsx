@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { AppShell } from "@/components/app-shell";
@@ -273,6 +274,40 @@ export default function AdminPage() {
                         </Dialog>
                     </TabsContent>
 
+                    {/* Rating Dimensions Tab */}
+                    <TabsContent value="ratings" className="mt-4">
+                        <div className="grid gap-6 md:grid-cols-2">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Initiative Rating Dimensions</CardTitle>
+                                    <CardDescription>The core criteria used to rate the performance of an entire initiative.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+                                        <li><span className="font-semibold text-foreground">Impact:</span> The overall effect and value delivered by the initiative.</li>
+                                        <li><span className="font-semibold text-foreground">Timeliness:</span> Adherence to deadlines and schedule.</li>
+                                        <li><span className="font-semibold text-foreground">Execution:</span> The quality of the work and management of the process.</li>
+                                        <li><span className="font-semibold text-foreground">Collaboration:</span> How well the team worked together and with stakeholders.</li>
+                                    </ul>
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>User Rating Dimensions</CardTitle>
+                                    <CardDescription>The core criteria used to rate an individual's performance on an initiative.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+                                        <li><span className="font-semibold text-foreground">Ownership:</span> Accountability and proactiveness of the individual.</li>
+                                        <li><span className="font-semibold text-foreground">Quality of Work:</span> The standard of the output delivered.</li>
+                                        <li><span className="font-semibold text-foreground">Timeliness:</span> Meeting personal deadlines and commitments.</li>
+                                        <li><span className="font-semibold text-foreground">Collaboration:</span> Contribution to the team dynamic and communication.</li>
+                                    </ul>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </TabsContent>
+
                     {/* System Tab */}
                     <TabsContent value="system" className="mt-4">
                         <Card>
@@ -502,5 +537,7 @@ function MasterDataFormDialog({ item, title, description, onSubmit, onClose }: M
         </DialogContent>
     );
 }
+
+    
 
     
