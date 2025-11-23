@@ -5,7 +5,7 @@
 import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useUser as useAuthUser } from '@/firebase';
 import { useCollection, useDoc } from '@/firebase';
-import { type User, type Initiative, type Task, type DailyCheckin, type InitiativeRating, type UserRating, type Department, type Designation } from './types';
+import { type User, type Initiative, type Task, type DailyCheckin, type InitiativeRating, type UserRating, type Department, type Designation, type Attachment } from './types';
 import { useEffect, useState } from 'react';
 
 // Note: These hooks now fetch data from Firestore.
@@ -37,14 +37,10 @@ export const useInitiative = (id: string | undefined) => {
     const firestore = useFirestore();
     const { isUserLoading } = useAuthUser();
     
-    // The query should not depend on the user being loaded, only on the ID.
-    // Firestore security rules will handle permissions.
     const docRef = useMemoFirebase(() => (id ? doc(firestore, 'initiatives', id) : null), [firestore, id]);
     
     const { data, isLoading, error } = useDoc<Initiative>(docRef);
 
-    // The overall loading state depends on both the document fetch AND the user auth check.
-    // We are only truly "done" loading when both are no longer in a loading state.
     const combinedIsLoading = isLoading || isUserLoading;
 
     return { data, isLoading: combinedIsLoading, error };
@@ -56,6 +52,12 @@ export const useTasksForInitiative = (initiativeId: string | undefined) => {
   const q = useMemoFirebase(() => initiativeId ? query(collection(firestore, 'initiatives', initiativeId, 'tasks')) : null, [firestore, initiativeId]);
   return useCollection<Task>(q);
 };
+
+export const useAttachmentsForInitiative = (initiativeId: string | undefined) => {
+    const firestore = useFirestore();
+    const q = useMemoFirebase(() => initiativeId ? query(collection(firestore, 'initiatives', initiativeId, 'attachments')) : null, [firestore, initiativeId]);
+    return useCollection<Attachment>(q);
+}
 
 export const useTasksForUser = (userId: string | undefined) => {
     const firestore = useFirestore();
@@ -151,3 +153,5 @@ export const useDesignations = () => {
     const q = useMemoFirebase(() => query(collection(firestore, 'designations')), [firestore]);
     return useCollection<Designation>(q);
 };
+
+    

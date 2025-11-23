@@ -10,11 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useInitiative, useTasksForInitiative, useUsers } from "@/lib/data";
-import { RAGStatus, Task, User, TaskStatus } from "@/lib/types";
+import { useInitiative, useTasksForInitiative, useUsers, useAttachmentsForInitiative } from "@/lib/data";
+import { RAGStatus, Task, User, TaskStatus, Attachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { ChevronLeft, Clock, Folder, GanttChartSquare, Pencil, PlusCircle, Star, Trash2, Upload, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, Clock, File, GanttChartSquare, Pencil, PlusCircle, Star, Trash2, Upload, MoreHorizontal, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -23,7 +23,7 @@ import { useFirestore, useUser as useAuthUser } from "@/firebase";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { addDoc, collection, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { addDoc, collection, doc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,15 +41,16 @@ const RAG_MAP: Record<RAGStatus, string> = {
   Green: 'border-green-500 text-green-500',
 };
 
-const GDRIVE_FOLDER_LINK = "https://drive.google.com/drive/folders/1liIfmtOrM9R3dY__RKaovQGHI5lItj7H?usp=sharing";
 
 export default function InitiativeDetailPage() {
     const params = useParams();
     const id = params.id as string;
+    const { user: authUser } = useAuthUser();
 
     const { data: initiative, isLoading: isLoadingInitiative, error } = useInitiative(id);
     const { data: allUsersData, isLoading: isLoadingUsers } = useUsers();
     const { data: tasksData, isLoading: isLoadingTasks } = useTasksForInitiative(id);
+    const { data: attachmentsData, isLoading: isLoadingAttachments } = useAttachmentsForInitiative(id);
     
     const userMap = useMemo(() => {
         if (!allUsersData) return {};
@@ -61,8 +62,9 @@ export default function InitiativeDetailPage() {
 
     const tasks = tasksData || [];
     const users = allUsersData || [];
+    const attachments = attachmentsData || [];
 
-    const isLoading = isLoadingInitiative || isLoadingUsers || isLoadingTasks;
+    const isLoading = isLoadingInitiative || isLoadingUsers || isLoadingTasks || isLoadingAttachments;
 
     if (isLoading) {
         return (
@@ -83,6 +85,9 @@ export default function InitiativeDetailPage() {
     if (!initiative) {
         return notFound();
     }
+
+    const isMember = authUser && (initiative.leadIds.includes(authUser.uid) || initiative.teamMemberIds.includes(authUser.uid));
+
 
     return (
         <AppShell>
@@ -196,24 +201,17 @@ export default function InitiativeDetailPage() {
                             tasks={tasks}
                             users={users}
                             userMap={userMap}
+                            isMember={isMember ?? false}
                         />
                     </TabsContent>
 
                     <TabsContent value="documents">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Documents</CardTitle>
-                                <CardDescription>All documents for this initiative are managed in a shared Google Drive folder.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Button asChild>
-                                    <a href={GDRIVE_FOLDER_LINK} target="_blank" rel="noopener noreferrer">
-                                        <Folder className="mr-2 h-4 w-4" />
-                                        Open Google Drive Folder
-                                    </a>
-                                </Button>
-                            </CardContent>
-                        </Card>
+                       <DocumentManager
+                            initiativeId={id}
+                            attachments={attachments}
+                            userMap={userMap}
+                            isMember={isMember ?? false}
+                       />
                     </TabsContent>
 
                     <TabsContent value="ratings">
@@ -291,9 +289,10 @@ interface TaskManagerProps {
     tasks: Task[];
     users: User[];
     userMap: Record<string, User>;
+    isMember: boolean;
 }
 
-function TaskManager({ initiativeId, tasks, users, userMap }: TaskManagerProps) {
+function TaskManager({ initiativeId, tasks, users, userMap, isMember }: TaskManagerProps) {
     const [isTaskFormOpen, setTaskFormOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const firestore = useFirestore();
@@ -332,7 +331,7 @@ function TaskManager({ initiativeId, tasks, users, userMap }: TaskManagerProps) 
                     initiativeId,
                     dueDate: values.dueDate.toISOString(),
                     progress: 0,
-                    // createdAt: serverTimestamp(), // Requires modifying types
+                    createdAt: new Date().toISOString(),
                 });
                 toast({ title: "Task Created" });
             }
@@ -351,9 +350,11 @@ function TaskManager({ initiativeId, tasks, users, userMap }: TaskManagerProps) 
                         <CardTitle>Tasks</CardTitle>
                         <CardDescription>All tasks associated with this initiative.</CardDescription>
                     </div>
-                    <Button onClick={handleAddNewTask}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Task
-                    </Button>
+                    {isMember && (
+                        <Button onClick={handleAddNewTask}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Task
+                        </Button>
+                    )}
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -384,17 +385,19 @@ function TaskManager({ initiativeId, tasks, users, userMap }: TaskManagerProps) 
                                     <TableCell>{format(new Date(task.dueDate), "MM/dd/yyyy")}</TableCell>
                                     <TableCell><Progress value={task.progress || 0} className="h-2" /></TableCell>
                                     <TableCell className="text-right">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent>
-                                                <DropdownMenuItem onClick={() => handleEditTask(task)}>Edit</DropdownMenuItem>
-                                                <DropdownMenuItem className="text-red-500" onClick={() => handleDeleteTask(task.id)}>Delete</DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                                        {isMember && (
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon">
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent>
+                                                    <DropdownMenuItem onClick={() => handleEditTask(task)}>Edit</DropdownMenuItem>
+                                                    <DropdownMenuItem className="text-red-500" onClick={() => handleDeleteTask(task.id)}>Delete</DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -516,3 +519,232 @@ function TaskFormDialog({ open, onOpenChange, onSubmit, task, users }: TaskFormD
         </Dialog>
     );
 }
+
+// Attachment Components
+
+const attachmentFormSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  url: z.string().url("Must be a valid URL"),
+  fileType: z.string().min(1, "File type is required"),
+});
+
+type AttachmentFormValues = z.infer<typeof attachmentFormSchema>;
+
+
+interface DocumentManagerProps {
+    initiativeId: string;
+    attachments: Attachment[];
+    userMap: Record<string, User>;
+    isMember: boolean;
+}
+
+function DocumentManager({ initiativeId, attachments, userMap, isMember }: DocumentManagerProps) {
+    const [isFormOpen, setFormOpen] = useState(false);
+    const [editingAttachment, setEditingAttachment] = useState<Attachment | null>(null);
+    const firestore = useFirestore();
+    const { user: authUser } = useAuthUser();
+    const { toast } = useToast();
+
+    const handleAddNew = () => {
+        setEditingAttachment(null);
+        setFormOpen(true);
+    };
+
+    const handleEdit = (attachment: Attachment) => {
+        setEditingAttachment(attachment);
+        setFormOpen(true);
+    };
+
+    const handleDelete = async (attachmentId: string) => {
+        if (!confirm("Are you sure you want to delete this document link?")) return;
+        try {
+            await deleteDoc(doc(firestore, 'initiatives', initiativeId, 'attachments', attachmentId));
+            toast({ title: "Document link deleted" });
+        } catch (error: any) {
+            toast({ title: "Error", description: `Could not delete document: ${error.message}`, variant: "destructive" });
+        }
+    };
+
+    const onFormSubmit = async (values: AttachmentFormValues) => {
+        if (!authUser) return;
+        try {
+            if (editingAttachment) {
+                const docRef = doc(firestore, 'initiatives', initiativeId, 'attachments', editingAttachment.id);
+                await updateDoc(docRef, values);
+                toast({ title: "Document Updated" });
+            } else {
+                const collectionRef = collection(firestore, 'initiatives', initiativeId, 'attachments');
+                await addDoc(collectionRef, {
+                    ...values,
+                    initiativeId,
+                    uploadedBy: authUser.uid,
+                    createdAt: new Date().toISOString(),
+                });
+                toast({ title: "Document Added" });
+            }
+            setFormOpen(false);
+            setEditingAttachment(null);
+        } catch (error: any) {
+            toast({ title: "Error", description: `Could not save document: ${error.message}`, variant: "destructive" });
+        }
+    };
+
+    return (
+        <>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Documents</CardTitle>
+                        <CardDescription>Manage document links for this initiative.</CardDescription>
+                    </div>
+                     {isMember && (
+                        <Button onClick={handleAddNew}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Document
+                        </Button>
+                    )}
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Owner</TableHead>
+                                <TableHead>Date Added</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {attachments.map(attachment => (
+                                <TableRow key={attachment.id}>
+                                    <TableCell className="font-medium">{attachment.name}</TableCell>
+                                    <TableCell><Badge variant="outline">{attachment.fileType}</Badge></TableCell>
+                                    <TableCell>{userMap[attachment.uploadedBy]?.name || 'Unknown'}</TableCell>
+                                    <TableCell>{format(new Date(attachment.createdAt), "MM/dd/yyyy")}</TableCell>
+                                    <TableCell className="text-right">
+                                        <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                                            <Button variant="ghost" size="icon">
+                                                <ExternalLink className="h-4 w-4" />
+                                            </Button>
+                                        </a>
+                                        {isMember && (
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon">
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent>
+                                                    <DropdownMenuItem onClick={() => handleEdit(attachment)}>Rename</DropdownMenuItem>
+                                                    <DropdownMenuItem className="text-red-500" onClick={() => handleDelete(attachment.id)}>Delete</DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        )}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+
+            <AttachmentFormDialog
+                key={editingAttachment ? editingAttachment.id : 'new-attachment'}
+                open={isFormOpen}
+                onOpenChange={setFormOpen}
+                onSubmit={onFormSubmit}
+                attachment={editingAttachment}
+            />
+        </>
+    );
+}
+
+interface AttachmentFormDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (values: AttachmentFormValues) => void;
+  attachment: Attachment | null;
+}
+
+function AttachmentFormDialog({ open, onOpenChange, onSubmit, attachment }: AttachmentFormDialogProps) {
+  const form = useForm<AttachmentFormValues>({
+    resolver: zodResolver(attachmentFormSchema),
+    defaultValues: {
+      name: attachment?.name || "",
+      url: attachment?.url || "",
+      fileType: attachment?.fileType || "",
+    },
+  });
+
+  const title = attachment ? "Rename Document" : "Add Document";
+  const description = attachment
+    ? "Edit the name of the document link."
+    : "Add a new document link to the initiative.";
+  
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Document Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="E.g., Project Charter" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Google Drive URL</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://docs.google.com/..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+                control={form.control}
+                name="fileType"
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>File Type</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select a file type" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                <SelectItem value="Google Doc">Google Doc</SelectItem>
+                                <SelectItem value="Google Sheet">Google Sheet</SelectItem>
+                                <SelectItem value="Google Slides">Google Slides</SelectItem>
+                                <SelectItem value="PDF">PDF</SelectItem>
+                                <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="submit">Save</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+    

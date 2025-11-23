@@ -51,6 +51,17 @@ export interface Task {
   progress?: number;
   effortEstimate?: number; // in hours
   dependencyIds?: string[];
+  createdAt: string;
+}
+
+export interface Attachment {
+  id: string;
+  initiativeId: string;
+  name: string;
+  url: string;
+  fileType: string;
+  uploadedBy: string; // user ID
+  createdAt: string;
 }
 
 export interface InitiativeRating {
@@ -100,3 +111,5 @@ export interface Designation {
     id: string;
     name: string;
 }
+
+    

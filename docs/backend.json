@@ -453,6 +453,45 @@
         "id",
         "name"
       ]
+    },
+     "Attachment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Attachment",
+      "type": "object",
+      "description": "Represents a document link attached to an initiative.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the attachment record."
+        },
+        "initiativeId": {
+          "type": "string",
+          "description": "ID of the initiative this attachment belongs to."
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the file."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "The URL to the document, e.g., a Google Drive link."
+        },
+        "fileType": {
+          "type": "string",
+          "description": "The type of the file, e.g., 'Google Doc', 'PDF', 'Spreadsheet'."
+        },
+        "uploadedBy": {
+          "type": "string",
+          "description": "User ID of the person who uploaded the document link."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the attachment was created."
+        }
+      },
+      "required": ["id", "initiativeId", "name", "url", "fileType", "uploadedBy", "createdAt"]
     }
   },
   "auth": {
@@ -511,6 +550,26 @@
             {
               "name": "taskId",
               "description": "The unique identifier of the task."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/initiatives/{initiativeId}/attachments/{attachmentId}",
+        "definition": {
+          "entityName": "Attachment",
+          "schema": {
+            "$ref": "#/backend/entities/Attachment"
+          },
+          "description": "Stores metadata about document links for an initiative.",
+          "params": [
+            {
+              "name": "initiativeId",
+              "description": "The unique identifier of the initiative."
+            },
+            {
+              "name": "attachmentId",
+              "description": "The unique identifier of the attachment."
             }
           ]
         }
@@ -617,3 +676,5 @@
     "reasoning": "The Firestore structure is designed to meet the application's requirements while adhering to the core design principles of Authorization Independence, Clarity of Intent, and DBAC. It leverages denormalization and structural segregation to simplify security rules and ensure data integrity.\n\n**Authorization Independence (Denormalization):**\n\n*   **Initiatives, Tasks, InitiativeRatings, UserRatings, DailyCheckins:** All subcollections of `initiatives` include denormalized authorization data to avoid `get()` calls in security rules. For example, the `tasks` collection stores the `ownerId`. This allows tasks to be created atomically with initiative membership without needing to read the parent initiative document. Similar strategies are applied to ratings, and check-ins.\n\n**Structural Segregation:**\n\n*   **Users:** User data is stored in the `/users/{userId}` path, ensuring that all documents in the `/users` collection share the same security posture (i.e., only the user or an admin can access their document).\n*   **Initiatives:** Initiative documents are stored in the `/initiatives/{initiativeId}` path. Access control to initiatives is managed via membership denormalized into each initiative's document (`leadIds` and `teamMemberIds`).\n\n**Access Modeling:**\n\n*   **Private Data:** User data is primarily path-based (e.g., `/users/{userId}`).\n*   **Collaborative Data:** Initiatives and Tasks use a combination of path-based access and explicit `ownerId` fields (for tasks). The `ownerId` field within tasks facilitates simpler queries for tasks owned by a specific user.\n*   **Global Roles (DBAC):** Admin roles are managed via the `/roles_admin/{uid}` collection, allowing easy role-based access control in security rules.\n\n**QAPs (Rules are not Filters):**\n\n*   The structure supports secure `list` operations by segregating data with different access requirements into different collections. For example, listing initiatives only requires checking initiative membership based on denormalized data within the initiative documents, without needing to filter based on user roles.\n\nThis design supports the application's core features, including initiative and task management, user directory maintenance, daily monitoring, Google Drive integration, performance rating, and prioritization, and merging, while ensuring data integrity and simplifying security rule implementation."
   }
 }
+
+    
