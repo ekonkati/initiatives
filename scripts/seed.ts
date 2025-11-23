@@ -177,9 +177,8 @@ async function seed() {
 
 seed().then(() => {
     // Gracefully exit the script
+    process.exit(0);
 }).catch(error => {
     console.error("An unexpected error occurred during the seeding process:", error);
     process.exit(1);
 });
-
-    
