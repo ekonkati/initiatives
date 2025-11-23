@@ -745,10 +745,3 @@ function TaskFormDialog({ open, onOpenChange, onSubmit, task, users }: TaskFormD
         </Dialog>
     );
 }
-
-const TaskStatus = {
-    NotStarted: "Not Started",
-    InProgress: "In Progress",
-    Blocked: "Blocked",
-    Completed: "Completed",
-} as const;

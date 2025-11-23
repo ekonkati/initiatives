@@ -31,7 +31,12 @@ export interface Initiative {
   progress: number;
 }
 
-export type TaskStatus = 'Not Started' | 'In Progress' | 'Blocked' | 'Completed';
+export enum TaskStatus {
+    NotStarted = "Not Started",
+    InProgress = "In Progress",
+    Blocked = "Blocked",
+    Completed = "Completed",
+}
 
 export interface Task {
   id: string;
