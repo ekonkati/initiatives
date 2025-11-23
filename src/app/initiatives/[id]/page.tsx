@@ -320,18 +320,23 @@ function TaskManager({ initiativeId, tasks, users, userMap, isMember }: TaskMana
 
     const onTaskFormSubmit = async (values: TaskFormValues) => {
         try {
+            const dataToSave = {
+                ...values,
+                dueDate: values.dueDate.toISOString(),
+            };
+
             if (editingTask) {
                 const taskRef = doc(firestore, 'initiatives', initiativeId, 'tasks', editingTask.id);
-                await updateDoc(taskRef, { ...values, dueDate: values.dueDate.toISOString() });
+                await updateDoc(taskRef, dataToSave);
                 toast({ title: "Task Updated" });
             } else {
                 const tasksCol = collection(firestore, 'initiatives', initiativeId, 'tasks');
                 await addDoc(tasksCol, {
-                    ...values,
+                    ...dataToSave,
                     initiativeId,
-                    dueDate: values.dueDate.toISOString(),
                     progress: 0,
                     createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
                 });
                 toast({ title: "Task Created" });
             }
@@ -437,6 +442,21 @@ function TaskFormDialog({ open, onOpenChange, onSubmit, task, users }: TaskFormD
             dueDate: task?.dueDate ? new Date(task.dueDate) : new Date(),
         },
     });
+
+     React.useEffect(() => {
+        if (open) {
+            form.reset(
+                {
+                    title: task?.title || "",
+                    description: task?.description || "",
+                    ownerId: task?.ownerId || "",
+                    status: task?.status || TaskStatus.NotStarted,
+                    dueDate: task?.dueDate ? new Date(task.dueDate) : new Date(),
+                }
+            );
+        }
+    }, [open, task, form]);
+
 
     const title = task ? "Edit Task" : "Add New Task";
     const description = task ? "Make changes to the task." : "Add a new task to this initiative.";
@@ -546,7 +566,9 @@ function DocumentManager({ initiativeId, attachments, userMap, isMember }: Docum
 
     const handleAddNew = () => {
         setEditingAttachment(null);
+        // Open Google Drive in a new tab to encourage uploading there first.
         window.open('https://drive.google.com/drive/my-drive', '_blank');
+        // Then open the form dialog to paste the link.
         setIsFormOpen(true);
     };
 
@@ -690,16 +712,20 @@ function AttachmentFormDialog({ attachment, open, onOpenChange, onSubmit }: Atta
         },
     });
      React.useEffect(() => {
-        if (attachment) {
-            form.reset(attachment);
-        } else {
-            form.reset({ name: "", url: "", fileType: "Google Doc" });
+        if (open) {
+            if (attachment) {
+                form.reset(attachment);
+            } else {
+                form.reset({ name: "", url: "", fileType: "Google Doc" });
+            }
         }
-    }, [attachment, form]);
+    }, [attachment, form, open]);
 
 
-    const title = attachment ? "Edit Document Link" : "Add New Document from Google Drive";
-    const description = attachment ? "Update the details for this document link." : "Upload a file to your Google Drive, then paste the shareable link below.";
+    const isEditing = !!attachment;
+    const title = isEditing ? "Edit Document Link" : "Add New Document from Google Drive";
+    const description = isEditing ? "Update the details for this document link." : "First, upload a file to Google Drive. Then, get a shareable link and paste it here.";
+
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -751,3 +777,4 @@ function AttachmentFormDialog({ attachment, open, onOpenChange, onSubmit }: Atta
     );
 }
 
+    
