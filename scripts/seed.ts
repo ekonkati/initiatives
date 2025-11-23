@@ -1,226 +1,27 @@
 
 /* eslint-disable no-console */
 import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, type User as AuthUser } from 'firebase/auth';
-import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc, query, WriteBatch, addDoc, Firestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from '../src/firebase/config';
-import { PlaceHolderImages } from '../src/lib/placeholder-images';
-import { User } from '@/lib/types';
-import data from '@/lib/placeholder-images.json';
-
-// --- DATA TO SEED ---
-
-const usersRaw = [
-    { name: 'Alia Hassan', email: 'alia.hassan@example.com', role: 'Admin', department: 'Executive', designation: 'CEO', tempId: 'user-1' },
-    { name: 'Ben Carter', email: 'ben.carter@example.com', role: 'Initiative Lead', department: 'Technology', designation: 'VP of Engineering', tempId: 'user-2' },
-    { name: 'Chloe Davis', email: 'chloe.davis@example.com', role: 'Team Member', department: 'Marketing', designation: 'Marketing Manager', tempId: 'user-3' },
-    { name: 'David Evans', email: 'david.evans@example.com', role: 'Initiative Lead', department: 'Finance', designation: 'CFO', tempId: 'user-4' },
-    { name: 'Eva Green', email: 'eva.green@example.com', role: 'Team Member', department: 'Legal', designation: 'General Counsel', tempId: 'user-5' },
-    { name: 'Frank Harris', email: 'frank.harris@example.com', role: 'Team Member', department: 'Finance', designation: 'Financial Analyst', tempId: 'user-6' },
-    { name: 'Grace Johnson', email: 'grace.johnson@example.com', role: 'Team Member', department: 'HR', designation: 'HR Business Partner', tempId: 'user-7' },
-    { name: 'Henry King', email: 'henry.king@example.com', role: 'Initiative Lead', department: 'Business Excellence & Transformation', designation: 'Head of Transformation', tempId: 'user-8' },
-    { name: 'Ivy Lee', email: 'ivy.lee@example.com', role: 'Initiative Lead', department: 'MSW & WTE', designation: 'Operations Head', tempId: 'user-9' },
-    { name: 'Jack Miller', email: 'jack.miller@example.com', role: 'Team Member', department: 'Legal', designation: 'Paralegal', tempId: 'user-10' },
-    { name: 'Kara Nelson', email: 'kara.nelson@example.com', role: 'Team Member', department: 'Finance', designation: 'Accountant', tempId: 'user-11' },
-    { name: 'Leo Olsen', email: 'leo.olsen@example.com', role: 'Team Member', department: 'Legal', designation: 'Contracts Manager', tempId: 'user-12' },
-    { name: 'Mia Perez', email: 'mia.perez@example.com', role: 'Initiative Lead', department: 'HR', designation: 'CHRO', tempId: 'user-13' },
-];
-
-const initiativesRaw = [
-  { id: '1', name: 'Digital Transformation Roadmap', category: 'Technology', description: 'Develop a 5-year roadmap for digital transformation.', objectives: 'Align technology with business goals.', leadIds: ['user-2'], teamMemberIds: ['user-8', 'user-4'], status: 'In Progress', priority: 'High', startDate: '2024-02-01T00:00:00Z', endDate: '2024-07-31T00:00:00Z', tags: ['Digital', 'Strategy'], ragStatus: 'Green', progress: 60 },
-  { id: '2', name: 'New Market Entry Strategy', category: 'Strategy', description: 'Analyze and select new markets for expansion.', objectives: 'Increase market share by 10%.', leadIds: ['user-4', 'user-1'], teamMemberIds: ['user-3'], status: 'In Progress', priority: 'High', startDate: '2024-03-15T00:00:00Z', endDate: '2024-09-30T00:00:00Z', tags: ['Strategy', 'Growth'], ragStatus: 'Green', progress: 45 },
-  { id: '3', name: 'Customer Relationship Management (CRM) System Implementation', category: 'Technology', description: 'Implement a new CRM system across sales and marketing.', objectives: 'Improve customer data management and sales pipeline visibility.', leadIds: ['user-2'], teamMemberIds: ['user-3', 'user-6'], status: 'Completed', priority: 'High', startDate: '2023-09-01T00:00:00Z', endDate: '2024-04-30T00:00:00Z', tags: ['CRM', 'Technology', 'Sales'], ragStatus: 'Green', progress: 100 },
-  { id: '4', name: 'Diversity and Inclusion Initiative', category: 'HR', description: 'Promote diversity and inclusion in the workplace.', objectives: 'Increase representation of underrepresented groups in leadership by 15%.', leadIds: ['user-13'], teamMemberIds: ['user-7', 'user-1'], status: 'In Progress', priority: 'Medium', startDate: '2024-01-10T00:00:00Z', endDate: '2024-12-31T00:00:00Z', tags: ['HR', 'DEI'], ragStatus: 'Green', progress: 50 },
-  { id: '5', name: 'Contract Lifecycle Management (CLM) Tool', category: 'Legal', description: 'Select and implement a CLM tool.', objectives: 'Automate contract creation, approval, and storage.', leadIds: ['user-5'], teamMemberIds: ['user-12', 'user-10'], status: 'Not Started', priority: 'Medium', startDate: '2024-07-20T00:00:00Z', endDate: '2025-02-20T00:00:00Z', tags: ['Legal', 'Automation', 'Digital'], ragStatus: 'Red', progress: 0 },
-];
-
-const tasksRaw = [
-  // Initiative 1
-  { id: '1', initiativeId: '1', title: 'Conduct stakeholder interviews', description: 'Interview key department heads.', ownerId: 'user-8', status: 'Completed', startDate: '2024-02-05T00:00:00Z', dueDate: '2024-02-28T00:00:00Z', progress: 100 },
-  { id: '2', initiativeId: '1', title: 'Analyze existing technology stack', description: 'Document all current systems and their integrations.', ownerId: 'user-2', status: 'In Progress', startDate: '2024-03-01T00:00:00Z', dueDate: '2024-04-15T00:00:00Z', progress: 75 },
-  { id: '3', initiativeId: '1', title: 'Define digital strategy pillars', description: 'Workshop with leadership to define key pillars.', ownerId: 'user-1', status: 'In Progress', startDate: '2024-04-16T00:00:00Z', dueDate: '2024-05-31T00:00:00Z', progress: 40 },
-  // Initiative 2
-  { id: '4', initiativeId: '2', title: 'Conduct market research for SEA region', description: 'Analyze market size, competition, and regulations in Southeast Asia.', ownerId: 'user-3', status: 'Completed', startDate: '2024-03-20T00:00:00Z', dueDate: '2024-05-10T00:00:00Z', progress: 100 },
-  { id: '5', initiativeId: '2', title: 'Financial modeling for market entry', description: 'Create financial projections for top 3 potential markets.', ownerId: 'user-4', status: 'In Progress', startDate: '2024-05-11T00:00:00Z', dueDate: '2024-06-30T00:00:00Z', progress: 50 },
-];
-
-const attachmentsRaw = [
-  // This data is now legacy. Attachments will be managed via the app UI.
-];
-
-const departmentsRaw = [
-    { name: 'Executive' },
-    { name: 'Technology' },
-    { name: 'Marketing' },
-    { name: 'Finance' },
-    { name: 'Legal' },
-    { name: 'HR' },
-    { name: 'Business Excellence & Transformation' },
-    { name: 'MSW & WTE' },
-];
-
-const designationsRaw = [
-    { name: 'CEO' },
-    { name: 'VP of Engineering' },
-    { name: 'Marketing Manager' },
-    { name: 'CFO' },
-    { name: 'General Counsel' },
-    { name: 'Financial Analyst' },
-    { name: 'HR Business Partner' },
-    { name: 'Head of Transformation' },
-    { name: 'Operations Head' },
-    { name: 'Paralegal' },
-    { name: 'Accountant' },
-    { name: 'Contracts Manager' },
-    { name: 'CHRO' },
-];
-
-// --- SCRIPT LOGIC ---
-
-async function deleteCollection(db: Firestore, collectionPath: string) {
-    const q = query(collection(db, collectionPath));
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.empty) {
-        console.log(`- Collection '${collectionPath}' is already empty.`);
-        return;
-    }
-
-    const batch = writeBatch(db);
-    snapshot.docs.forEach(doc => {
-        batch.delete(doc.ref);
-    });
-
-    await batch.commit();
-    console.log(`- Successfully deleted ${snapshot.size} documents from '${collectionPath}'.`);
-}
+import { runSeed } from '@/lib/seeding';
 
 
 async function seed() {
-    console.log('--- Firebase Seeding Script ---');
-
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    console.log('STEP 1: Deleting previous data...');
     try {
-        // Delete all collections to ensure a clean slate
-        await deleteCollection(db, 'initiatives'); // Deleting parent also deletes subcollections
-        await deleteCollection(db, 'users');
-        await deleteCollection(db, 'departments');
-        await deleteCollection(db, 'designations');
+        await runSeed(db, auth);
+        console.log('\n--- Seeding Complete! ---');
+        console.log('You can now log in with the credentials provided during the seeding process (password is "password123" for all).');
     } catch (error) {
-        console.error('Halting seed script due to error during data deletion:', error);
-        return;
+        console.error("An unexpected error occurred during the seeding process:", error);
+        process.exit(1);
     }
-    console.log('Previous data deleted successfully.');
-
-
-    const imageMap = data.placeholderImages.reduce((acc, img) => {
-        acc[img.id] = img.imageUrl;
-        return acc;
-    }, {} as Record<string, string>);
-
-    // 2. Create Users in Firebase Auth and get their UIDs
-    console.log('\nSTEP 2: Creating authentication users...');
-    const userIdMap: Record<string, string> = {}; // Map tempId to real UID
-    const userProfiles: User[] = [];
-
-    for (const user of usersRaw) {
-        let authUser: AuthUser;
-        try {
-            const userCredential = await createUserWithEmailAndPassword(auth, user.email, 'password123');
-            authUser = userCredential.user;
-        } catch (error: any) {
-            if (error.code === 'auth/email-already-in-use') {
-                const userCredential = await signInWithEmailAndPassword(auth, user.email, 'password123');
-                authUser = userCredential.user;
-            } else {
-                console.error(`  - Error processing user ${user.email}:`, error.message);
-                throw error;
-            }
-        }
-        
-        userIdMap[user.tempId] = authUser.uid;
-        console.log(`- Mapped ${user.email} (${user.tempId}) to UID: ${authUser.uid}`);
-
-        userProfiles.push({
-            id: authUser.uid,
-            name: user.name,
-            email: user.email,
-            role: user.role as User['role'],
-            department: user.department,
-            designation: user.designation,
-            active: true,
-            photoUrl: imageMap[user.tempId] || `https://picsum.photos/seed/${authUser.uid}/40/40`,
-        });
-    }
-    console.log('Authentication users created and mapped.');
-
-
-    // 3. Seed Firestore with all data in a single batch
-    console.log('\nSTEP 3: Seeding Firestore database...');
-    const batch = writeBatch(db);
-
-    // Add Users
-    userProfiles.forEach(profile => {
-        const userRef = doc(db, 'users', profile.id);
-        batch.set(userRef, profile);
-    });
-    console.log(`- Added ${userProfiles.length} user profiles to the batch.`);
-    
-    // Add Initiatives and Subcollections
-    initiativesRaw.forEach(initRaw => {
-        const initiativeRef = doc(db, 'initiatives', initRaw.id);
-        const mappedInitiative = {
-            ...initRaw,
-            leadIds: initRaw.leadIds.map(tempId => userIdMap[tempId]).filter(Boolean),
-            teamMemberIds: initRaw.teamMemberIds.map(tempId => userIdMap[tempId]).filter(Boolean),
-        };
-        batch.set(initiativeRef, mappedInitiative);
-
-        // Seed sub-collections
-        tasksRaw.filter(t => t.initiativeId === initRaw.id).forEach(taskRaw => {
-            const ownerId = userIdMap[taskRaw.ownerId];
-            if (ownerId) {
-                const taskRef = doc(db, 'initiatives', initRaw.id, 'tasks', taskRaw.id);
-                batch.set(taskRef, { ...taskRaw, ownerId, contributorIds: [] });
-            }
-        });
-    });
-    console.log(`- Added ${initiativesRaw.length} initiatives and their subcollections to the batch.`);
-
-    // Add Departments
-    departmentsRaw.forEach(dept => {
-        const deptRef = doc(collection(db, 'departments'));
-        batch.set(deptRef, dept);
-    });
-    console.log(`- Added ${departmentsRaw.length} departments to the batch.`);
-
-    // Add Designations
-    designationsRaw.forEach(desig => {
-        const desigRef = doc(collection(db, 'designations'));
-        batch.set(desigRef, desig);
-    });
-    console.log(`- Added ${designationsRaw.length} designations to the batch.`);
-
-    // Commit the batch
-    try {
-        await batch.commit();
-        console.log('✅ Batch committed successfully.');
-    } catch (error) {
-        console.error('❌ Error committing batch:', error);
-        throw error;
-    }
-
-    console.log('\n--- Seeding Complete! ---');
-    console.log('You can now log in with the following credentials (password is "password123" for all):');
-    usersRaw.forEach(user => console.log(`- ${user.email}`));
+    process.exit(0);
 }
 
-seed().catch(error => {
-    console.error("An unexpected error occurred during the seeding process:", error);
-    process.exit(1);
-});
+seed();

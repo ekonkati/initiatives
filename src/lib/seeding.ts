@@ -44,11 +44,6 @@ const tasksRaw = [
   { id: '5', initiativeId: '2', title: 'Financial modeling for market entry', description: 'Create financial projections for top 3 potential markets.', ownerId: 'user-4', status: 'In Progress', startDate: '2024-05-11T00:00:00Z', dueDate: '2024-06-30T00:00:00Z', progress: 50 },
 ];
 
-const attachmentsRaw = [
-  { id: '1', type: 'initiative', initiativeId: '1', fileName: 'Digital Transformation Vision.docx', fileType: 'docx', driveFileId: '123', driveUrl: '#', uploadedBy: 'user-1', uploadedAt: '2024-02-05T00:00:00Z' },
-  { id: '2', type: 'initiative', initiativeId: '2', fileName: 'Market Research Report - SEA.pdf', fileType: 'pdf', driveFileId: '456', driveUrl: '#', uploadedBy: 'user-3', uploadedAt: '2024-05-12T00:00:00Z' },
-];
-
 const departmentsRaw = [
     { name: 'Executive' },
     { name: 'Technology' },
@@ -134,7 +129,6 @@ export async function runSeed(db: Firestore, auth: Auth) {
         try {
             // NOTE: In a real-world scenario, you might not want to create auth users
             // from a client-side seed function due to security. This is for demo purposes.
-            // A secure backend function would be better.
             // Also, deleting auth users is a separate, more complex process not handled here.
             const userCredential = await createUserWithEmailAndPassword(auth, user.email, 'password123');
             authUser = userCredential.user;
@@ -194,14 +188,6 @@ export async function runSeed(db: Firestore, auth: Auth) {
                 batch.set(taskRef, { ...taskRaw, ownerId, contributorIds: [] });
             }
         });
-
-        attachmentsRaw.filter(a => a.initiativeId === initRaw.id).forEach(attRaw => {
-            const uploadedBy = userIdMap[attRaw.uploadedBy];
-            if (uploadedBy) {
-                const attRef = doc(db, 'initiatives', initRaw.id, 'attachments', attRaw.id);
-                batch.set(attRef, { ...attRaw, uploadedBy });
-            }
-        });
     });
     console.log(`- Added ${initiativesRaw.length} initiatives and their subcollections to the batch.`);
 
@@ -230,5 +216,3 @@ export async function runSeed(db: Firestore, auth: Auth) {
 
     console.log('\n--- Seeding Complete! ---');
 }
-
-    

@@ -5,7 +5,7 @@
 import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useUser as useAuthUser } from '@/firebase';
 import { useCollection, useDoc } from '@/firebase';
-import { type User, type Initiative, type Task, type Attachment, type DailyCheckin, type InitiativeRating, type UserRating, type Department, type Designation } from './types';
+import { type User, type Initiative, type Task, type DailyCheckin, type InitiativeRating, type UserRating, type Department, type Designation } from './types';
 import { useEffect, useState } from 'react';
 
 // Note: These hooks now fetch data from Firestore.
@@ -120,13 +120,6 @@ export const useTasksForUser = (userId: string | undefined) => {
     }, [userId, initiatives, firestore, isLoadingInitiatives]);
 
     return { data: tasks, isLoading: isLoading || isLoadingInitiatives, error };
-};
-
-
-export const useAttachments = (initiativeId: string | undefined) => {
-    const firestore = useFirestore();
-    const q = useMemoFirebase(() => initiativeId ? query(collection(firestore, 'initiatives', initiativeId, 'attachments')) : null, [firestore, initiativeId]);
-    return useCollection<Attachment>(q);
 };
 
 export const useInitiativeRatings = (initiativeId: string | undefined) => {

@@ -53,17 +53,6 @@ export interface Task {
   dependencyIds?: string[];
 }
 
-export interface Attachment {
-  id: string;
-  initiativeId: string;
-  fileName: string;
-  fileType: string;
-  storagePath: string; // Firebase Storage path
-  downloadUrl: string; // Firebase Storage download URL
-  uploadedBy: string; // user ID
-  uploadedAt: string;
-}
-
 export interface InitiativeRating {
   id: string;
   initiativeId: string;
