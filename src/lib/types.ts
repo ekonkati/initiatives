@@ -58,7 +58,8 @@ export interface Attachment {
   id: string;
   initiativeId: string;
   name: string;
-  url: string;
+  storagePath: string; // Firebase Storage path
+  downloadURL: string; // Publicly accessible URL
   fileType: string;
   uploadedBy: string; // user ID
   createdAt: string;
@@ -111,5 +112,3 @@ export interface Designation {
     id: string;
     name: string;
 }
-
-    

@@ -55,4 +55,11 @@ service cloud.firestore {
   }
 }
 
-    
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow members of an initiative to read/write to that initiative's attachment folder
+    match /initiatives/{initiativeId}/attachments/{allPaths=**} {
+      allow read, write: if isInitiativeMember(initiativeId);
+    }
+  }
+}
