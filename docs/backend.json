@@ -472,6 +472,46 @@
         "createdBy",
         "createdAt"
       ]
+    },
+    "Department": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Department",
+      "type": "object",
+      "description": "Represents a department within the organization.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the department."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the department."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Designation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Designation",
+      "type": "object",
+      "description": "Represents a designation or job title within the organization.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the designation."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the designation."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
     }
   },
   "auth": {
@@ -629,8 +669,31 @@
             }
           ]
         }
+      },
+       {
+        "path": "/departments/{departmentId}",
+        "definition": {
+          "entityName": "Department",
+          "schema": { "$ref": "#/backend/entities/Department" },
+          "description": "Stores department master data.",
+          "params": [
+            { "name": "departmentId", "description": "The unique identifier of the department." }
+          ]
+        }
+      },
+      {
+        "path": "/designations/{designationId}",
+        "definition": {
+          "entityName": "Designation",
+          "schema": { "$ref": "#/backend/entities/Designation" },
+          "description": "Stores designation master data.",
+          "params": [
+            { "name": "designationId", "description": "The unique identifier of the designation." }
+          ]
+        }
       }
     ],
     "reasoning": "The Firestore structure is designed to meet the application's requirements while adhering to the core design principles of Authorization Independence, Clarity of Intent, and DBAC. It leverages denormalization and structural segregation to simplify security rules and ensure data integrity.\n\n**Authorization Independence (Denormalization):**\n\n*   **Initiatives, Tasks, Attachments, InitiativeRatings, UserRatings, DailyCheckins:** All subcollections of `initiatives` include denormalized authorization data to avoid `get()` calls in security rules. For example, the `tasks` collection stores the `ownerId`. This allows tasks to be created atomically with initiative membership without needing to read the parent initiative document. Similar strategies are applied to attachments, ratings, and check-ins.\n\n**Structural Segregation:**\n\n*   **Users:** User data is stored in the `/users/{userId}` path, ensuring that all documents in the `/users` collection share the same security posture (i.e., only the user or an admin can access their document).\n*   **Initiatives:** Initiative documents are stored in the `/initiatives/{initiativeId}` path. Access control to initiatives is managed via membership denormalized into each initiative's document (`leadIds` and `teamMemberIds`).\n\n**Access Modeling:**\n\n*   **Private Data:** User data is primarily path-based (e.g., `/users/{userId}`).\n*   **Collaborative Data:** Initiatives and Tasks use a combination of path-based access and explicit `ownerId` fields (for tasks). The `ownerId` field within tasks facilitates simpler queries for tasks owned by a specific user.\n*   **Global Roles (DBAC):** Admin roles are managed via the `/roles_admin/{uid}` collection, allowing easy role-based access control in security rules.\n\n**QAPs (Rules are not Filters):**\n\n*   The structure supports secure `list` operations by segregating data with different access requirements into different collections. For example, listing initiatives only requires checking initiative membership based on denormalized data within the initiative documents, without needing to filter based on user roles.\n\nThis design supports the application's core features, including initiative and task management, user directory maintenance, daily monitoring, Google Drive integration, performance rating, prioritization, and merging, while ensuring data integrity and simplifying security rule implementation."
   }
 }
+    

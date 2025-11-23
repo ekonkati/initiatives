@@ -98,3 +98,15 @@ export interface DailyCheckin {
   createdBy: string; // user ID
   createdAt: string;
 }
+
+export interface Department {
+    id: string;
+    name: string;
+}
+
+export interface Designation {
+    id: string;
+    name: string;
+}
+
+    

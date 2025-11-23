@@ -8,20 +8,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useUsers, useInitiatives } from "@/lib/data";
+import { useUsers, useInitiatives, useDepartments, useDesignations } from "@/lib/data";
+import { Department, Designation, User } from "@/lib/types";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { User } from "@/lib/types";
-import { doc, setDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, setDoc, updateDoc, deleteDoc, addDoc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 
+// Schemas
 const userFormSchema = z.object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Invalid email address"),
@@ -30,50 +31,85 @@ const userFormSchema = z.object({
     designation: z.string().min(1, "Designation is required"),
 });
 
+const masterDataFormSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+});
+
 type UserFormValues = z.infer<typeof userFormSchema>;
+type MasterDataFormValues = z.infer<typeof masterDataFormSchema>;
+
 
 export default function AdminPage() {
     const { data: usersData } = useUsers();
     const { data: initiativesData } = useInitiatives();
+    const { data: departmentsData } = useDepartments();
+    const { data: designationsData } = useDesignations();
+
     const users = usersData || [];
+    const departments = departmentsData || [];
+    const designations = designationsData || [];
+    
     const firestore = useFirestore();
-    const [isFormOpen, setIsFormOpen] = useState(false);
+
+    const [isUserFormOpen, setIsUserFormOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
+
+    const [isDeptFormOpen, setIsDeptFormOpen] = useState(false);
+    const [editingDept, setEditingDept] = useState<Department | null>(null);
+
+    const [isDesigFormOpen, setIsDesigFormOpen] = useState(false);
+    const [editingDesig, setEditingDesig] = useState<Designation | null>(null);
 
     const categories = useMemo(() => {
         if (!initiativesData) return [];
         return [...new Set(initiativesData.map(i => i.category))];
     }, [initiativesData]);
 
-    const handleAddNew = () => {
+    // User Management Handlers
+    const handleAddNewUser = () => {
         setEditingUser(null);
-        setIsFormOpen(true);
+        setIsUserFormOpen(true);
     };
 
-    const handleEdit = (user: User) => {
+    const handleEditUser = (user: User) => {
         setEditingUser(user);
-        setIsFormOpen(true);
+        setIsUserFormOpen(true);
     };
 
-    const handleDeactivate = async (user: User) => {
+    const handleDeactivateUser = async (user: User) => {
         if (confirm(`Are you sure you want to deactivate ${user.name}?`)) {
             const userRef = doc(firestore, 'users', user.id);
             await updateDoc(userRef, { active: false });
         }
     };
 
-    const onFormSubmit = async (values: UserFormValues) => {
+    const onUserFormSubmit = async (values: UserFormValues) => {
         if (editingUser) {
-            // Update existing user
             const userRef = doc(firestore, 'users', editingUser.id);
             await updateDoc(userRef, values);
         } else {
-            // This is a placeholder for adding a new user.
-            // A real implementation would require creating an auth user first.
             alert("Adding a new user requires creating an authentication entry first, which is not implemented in this prototype.");
         }
-        setIsFormOpen(false);
+        setIsUserFormOpen(false);
         setEditingUser(null);
+    };
+
+    // Master Data Handlers (Generic)
+    const handleMasterDataSubmit = (collectionName: string, setFormOpen: (open: boolean) => void, setEditing: (item: any) => void, editingItem: any) => async (values: MasterDataFormValues) => {
+        if (editingItem) {
+            const itemRef = doc(firestore, collectionName, editingItem.id);
+            await updateDoc(itemRef, values);
+        } else {
+            await addDoc(collection(firestore, collectionName), values);
+        }
+        setFormOpen(false);
+        setEditing(null);
+    };
+    
+    const handleMasterDataDelete = (collectionName: string) => async (item: { id: string, name: string }) => {
+        if (confirm(`Are you sure you want to delete ${item.name}?`)) {
+            await deleteDoc(doc(firestore, collectionName, item.id));
+        }
     };
 
 
@@ -88,15 +124,19 @@ export default function AdminPage() {
                     <TabsList>
                         <TabsTrigger value="users">Users</TabsTrigger>
                         <TabsTrigger value="categories">Categories</TabsTrigger>
+                        <TabsTrigger value="departments">Departments</TabsTrigger>
+                        <TabsTrigger value="designations">Designations</TabsTrigger>
                         <TabsTrigger value="ratings">Rating Dimensions</TabsTrigger>
                     </TabsList>
+                    
+                    {/* Users Tab */}
                     <TabsContent value="users" className="mt-4">
-                         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                         <Dialog open={isUserFormOpen} onOpenChange={setIsUserFormOpen}>
                             <Card>
                                 <CardHeader>
                                     <CardTitle>User Management</CardTitle>
                                     <CardDescription>Add, edit, or remove users from the system.</CardDescription>
-                                    <Button className="w-fit ml-auto -mt-12" onClick={handleAddNew}>
+                                    <Button className="w-fit ml-auto -mt-12" onClick={handleAddNewUser}>
                                         <PlusCircle className="mr-2 h-4 w-4" /> Add User
                                     </Button>
                                 </CardHeader>
@@ -126,8 +166,8 @@ export default function AdminPage() {
                                                                 </Button>
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent>
-                                                                <DropdownMenuItem onClick={() => handleEdit(user)}>Edit</DropdownMenuItem>
-                                                                <DropdownMenuItem className="text-red-500" onClick={() => handleDeactivate(user)}>Deactivate</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleEditUser(user)}>Edit</DropdownMenuItem>
+                                                                <DropdownMenuItem className="text-red-500" onClick={() => handleDeactivateUser(user)}>Deactivate</DropdownMenuItem>
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
                                                     </TableCell>
@@ -139,51 +179,66 @@ export default function AdminPage() {
                             </Card>
                             <UserFormDialog
                                 user={editingUser}
-                                onSubmit={onFormSubmit}
-                                onClose={() => setIsFormOpen(false)}
+                                onSubmit={onUserFormSubmit}
+                                onClose={() => setIsUserFormOpen(false)}
+                                departments={departments}
+                                designations={designations}
                             />
                         </Dialog>
                     </TabsContent>
+
+                    {/* Categories Tab */}
                     <TabsContent value="categories" className="mt-4">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Initiative Categories</CardTitle>
-                                <CardDescription>Manage the categories (themes) for initiatives.</CardDescription>
-                                <Button className="w-fit ml-auto -mt-12">
-                                    <PlusCircle className="mr-2 h-4 w-4" /> Add Category
-                                </Button>
-                            </CardHeader>
-                            <CardContent>
-                               <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Category Name</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {categories.map(category => (
-                                            <TableRow key={category}>
-                                                <TableCell className="font-medium">{category}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon">
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent>
-                                                            <DropdownMenuItem>Edit</DropdownMenuItem>
-                                                            <DropdownMenuItem className="text-red-500">Delete</DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </CardContent>
-                        </Card>
+                        <MasterDataTable
+                            title="Initiative Categories"
+                            description="Manage the categories (themes) for initiatives."
+                            data={categories.map(c => ({ id: c, name: c }))} // Adapt for string array
+                            onAddNew={() => alert("Adding/Editing categories not implemented in this view.")}
+                            onEdit={() => alert("Adding/Editing categories not implemented in this view.")}
+                            onDelete={() => alert("Deleting categories not implemented in this view.")}
+                        />
+                    </TabsContent>
+
+                     {/* Departments Tab */}
+                    <TabsContent value="departments" className="mt-4">
+                        <Dialog open={isDeptFormOpen} onOpenChange={setIsDeptFormOpen}>
+                            <MasterDataTable
+                                title="Departments"
+                                description="Manage the departments within the organization."
+                                data={departments}
+                                onAddNew={() => { setEditingDept(null); setIsDeptFormOpen(true); }}
+                                onEdit={(item) => { setEditingDept(item); setIsDeptFormOpen(true); }}
+                                onDelete={handleMasterDataDelete('departments')}
+                            />
+                            <MasterDataFormDialog
+                                item={editingDept}
+                                title={editingDept ? "Edit Department" : "Add Department"}
+                                description={editingDept ? "Edit the department name." : "Add a new department."}
+                                onSubmit={handleMasterDataSubmit('departments', setIsDeptFormOpen, setEditingDept, editingDept)}
+                                onClose={() => setIsDeptFormOpen(false)}
+                            />
+                        </Dialog>
+                    </TabsContent>
+
+                     {/* Designations Tab */}
+                    <TabsContent value="designations" className="mt-4">
+                        <Dialog open={isDesigFormOpen} onOpenChange={setIsDesigFormOpen}>
+                            <MasterDataTable
+                                title="Designations"
+                                description="Manage the job titles and designations."
+                                data={designations}
+                                onAddNew={() => { setEditingDesig(null); setIsDesigFormOpen(true); }}
+                                onEdit={(item) => { setEditingDesig(item); setIsDesigFormOpen(true); }}
+                                onDelete={handleMasterDataDelete('designations')}
+                            />
+                            <MasterDataFormDialog
+                                item={editingDesig}
+                                title={editingDesig ? "Edit Designation" : "Add Designation"}
+                                description={editingDesig ? "Edit the designation name." : "Add a new designation."}
+                                onSubmit={handleMasterDataSubmit('designations', setIsDesigFormOpen, setEditingDesig, editingDesig)}
+                                onClose={() => setIsDesigFormOpen(false)}
+                            />
+                        </Dialog>
                     </TabsContent>
                 </Tabs>
             </main>
@@ -191,14 +246,69 @@ export default function AdminPage() {
     );
 }
 
+// Reusable Components
+interface MasterDataTableProps {
+    title: string;
+    description: string;
+    data: { id: string; name: string }[];
+    onAddNew: () => void;
+    onEdit: (item: { id: string; name: string }) => void;
+    onDelete: (item: { id: string; name: string }) => void;
+}
+
+function MasterDataTable({ title, description, data, onAddNew, onEdit, onDelete }: MasterDataTableProps) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+                <Button className="w-fit ml-auto -mt-12" onClick={onAddNew}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add New
+                </Button>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {data.map(item => (
+                            <TableRow key={item.id}>
+                                <TableCell className="font-medium">{item.name}</TableCell>
+                                <TableCell className="text-right">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuItem onClick={() => onEdit(item)}>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem className="text-red-500" onClick={() => onDelete(item)}>Delete</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    );
+}
 
 interface UserFormDialogProps {
     user: User | null;
     onSubmit: (values: UserFormValues) => void;
     onClose: () => void;
+    departments: Department[];
+    designations: Designation[];
 }
 
-function UserFormDialog({ user, onSubmit, onClose }: UserFormDialogProps) {
+function UserFormDialog({ user, onSubmit, onClose, departments, designations }: UserFormDialogProps) {
     const form = useForm<UserFormValues>({
         resolver: zodResolver(userFormSchema),
         defaultValues: {
@@ -210,7 +320,6 @@ function UserFormDialog({ user, onSubmit, onClose }: UserFormDialogProps) {
         },
     });
 
-    // Reset form when user changes
     const memoizedUser = useMemo(() => user, [user]);
     useMemo(() => {
         form.reset({
@@ -221,7 +330,6 @@ function UserFormDialog({ user, onSubmit, onClose }: UserFormDialogProps) {
             designation: memoizedUser?.designation || "",
         });
     }, [memoizedUser, form]);
-
 
     const title = user ? "Edit User" : "Add New User";
     const description = user
@@ -236,81 +344,59 @@ function UserFormDialog({ user, onSubmit, onClose }: UserFormDialogProps) {
             </DialogHeader>
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                    <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Full Name</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="John Doe" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Email</FormLabel>
-                                <FormControl>
-                                    <Input type="email" placeholder="john.doe@example.com" {...field} disabled={!!user} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="role"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Role</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a role" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="Admin">Admin</SelectItem>
-                                        <SelectItem value="Initiative Lead">Initiative Lead</SelectItem>
-                                        <SelectItem value="Team Member">Team Member</SelectItem>
-                                        <SelectItem value="Viewer">Viewer</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="department"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Department</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="e.g., Technology" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="designation"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Designation</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="e.g., Software Engineer" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Full Name</FormLabel>
+                            <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="email" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl><Input type="email" placeholder="john.doe@example.com" {...field} disabled={!!user} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                     <FormField control={form.control} name="role" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Role</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Admin">Admin</SelectItem>
+                                    <SelectItem value="Initiative Lead">Initiative Lead</SelectItem>
+                                    <SelectItem value="Team Member">Team Member</SelectItem>
+                                    <SelectItem value="Viewer">Viewer</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="department" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Department</FormLabel>
+                             <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select a department" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    {departments.map(dept => <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={form.control} name="designation" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Designation</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select a designation" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    {designations.map(desig => <SelectItem key={desig.id} value={desig.name}>{desig.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
                     <DialogFooter>
                         <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
                         <Button type="submit">Save changes</Button>
@@ -321,3 +407,48 @@ function UserFormDialog({ user, onSubmit, onClose }: UserFormDialogProps) {
     );
 }
 
+
+interface MasterDataFormDialogProps {
+    item: { id: string, name: string } | null;
+    title: string;
+    description: string;
+    onSubmit: (values: MasterDataFormValues) => void;
+    onClose: () => void;
+}
+
+function MasterDataFormDialog({ item, title, description, onSubmit, onClose }: MasterDataFormDialogProps) {
+    const form = useForm<MasterDataFormValues>({
+        resolver: zodResolver(masterDataFormSchema),
+        defaultValues: { name: item?.name || "" },
+    });
+
+    const memoizedItem = useMemo(() => item, [item]);
+     useMemo(() => {
+        form.reset({ name: memoizedItem?.name || "" });
+    }, [memoizedItem, form]);
+
+    return (
+        <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+                <DialogTitle>{title}</DialogTitle>
+                <DialogDescription>{description}</DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                    <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Name</FormLabel>
+                            <FormControl><Input placeholder="Enter name" {...field} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <DialogFooter>
+                        <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+                        <Button type="submit">Save</Button>
+                    </DialogFooter>
+                </form>
+            </Form>
+        </DialogContent>
+    );
+}
+    

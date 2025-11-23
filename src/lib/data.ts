@@ -5,7 +5,7 @@
 import { collection, query, where, doc, onSnapshot } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useUser as useAuthUser } from '@/firebase';
 import { useCollection, useDoc } from '@/firebase';
-import { type User, type Initiative, type Task, type Attachment, type DailyCheckin, type InitiativeRating, type UserRating } from './types';
+import { type User, type Initiative, type Task, type Attachment, type DailyCheckin, type InitiativeRating, type UserRating, type Department, type Designation } from './types';
 import { useEffect, useState } from 'react';
 
 // Note: These hooks now fetch data from Firestore.
@@ -128,3 +128,17 @@ export const useDailyCheckins = (initiativeId: string | undefined) => {
     const q = useMemoFirebase(() => initiativeId ? query(collection(firestore, 'initiatives', initiativeId, 'dailyCheckins')) : null, [firestore, initiativeId]);
     return useCollection<DailyCheckin>(q);
 };
+
+export const useDepartments = () => {
+  const firestore = useFirestore();
+  const q = useMemoFirebase(() => query(collection(firestore, 'departments')), [firestore]);
+  return useCollection<Department>(q);
+};
+
+export const useDesignations = () => {
+    const firestore = useFirestore();
+    const q = useMemoFirebase(() => query(collection(firestore, 'designations')), [firestore]);
+    return useCollection<Designation>(q);
+};
+
+    

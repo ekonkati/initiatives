@@ -2,7 +2,7 @@
 /* eslint-disable no-console */
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, type User as AuthUser } from 'firebase/auth';
-import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc, query, WriteBatch } from 'firebase/firestore';
+import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc, query, WriteBatch, addDoc } from 'firebase/firestore';
 import { firebaseConfig } from '../src/firebase/config';
 import { PlaceHolderImages } from '../src/lib/placeholder-images';
 import { User } from '@/lib/types';
@@ -49,6 +49,32 @@ const attachmentsRaw = [
   { id: '2', type: 'initiative', initiativeId: '2', fileName: 'Market Research Report - SEA.pdf', fileType: 'pdf', driveFileId: '456', driveUrl: '#', uploadedBy: 'user-3', uploadedAt: '2024-05-12T00:00:00Z' },
 ];
 
+const departmentsRaw = [
+    { name: 'Executive' },
+    { name: 'Technology' },
+    { name: 'Marketing' },
+    { name: 'Finance' },
+    { name: 'Legal' },
+    { name: 'HR' },
+    { name: 'Business Excellence & Transformation' },
+    { name: 'MSW & WTE' },
+];
+
+const designationsRaw = [
+    { name: 'CEO' },
+    { name: 'VP of Engineering' },
+    { name: 'Marketing Manager' },
+    { name: 'CFO' },
+    { name: 'General Counsel' },
+    { name: 'Financial Analyst' },
+    { name: 'HR Business Partner' },
+    { name: 'Head of Transformation' },
+    { name: 'Operations Head' },
+    { name: 'Paralegal' },
+    { name: 'Accountant' },
+    { name: 'Contracts Manager' },
+    { name: 'CHRO' },
+];
 
 // --- SCRIPT LOGIC ---
 
@@ -92,6 +118,8 @@ async function seed() {
     try {
         await deleteCollection(db, 'users');
         await deleteCollection(db, 'initiatives');
+        await deleteCollection(db, 'departments');
+        await deleteCollection(db, 'designations');
         // Note: Subcollections like tasks and attachments are automatically deleted when their parent initiative is.
     } catch (error) {
         console.error('Halting seed script due to error during data deletion:', error);
@@ -208,7 +236,21 @@ async function seed() {
     });
     console.log('Attachments added to batch.');
 
-    // 7. Commit the entire batch
+    // 7. Seed Departments and Designations (not in a batch, can be simple adds)
+    console.log('Seeding departments...');
+    for (const dept of departmentsRaw) {
+        await addDoc(collection(db, 'departments'), dept);
+    }
+    console.log(`${departmentsRaw.length} departments seeded.`);
+
+    console.log('Seeding designations...');
+    for (const desig of designationsRaw) {
+        await addDoc(collection(db, 'designations'), desig);
+    }
+    console.log(`${designationsRaw.length} designations seeded.`);
+
+
+    // 8. Commit the main batch
     try {
         await batch.commit();
         console.log('✅ Batch committed successfully. Firestore has been seeded.');
@@ -227,3 +269,5 @@ seed().catch(error => {
     console.error("An unexpected error occurred during the seeding process:", error);
     process.exit(1);
 });
+
+    
