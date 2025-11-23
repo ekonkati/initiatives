@@ -72,20 +72,21 @@ async function seed() {
     for (const user of usersRaw) {
         let authUser: AuthUser;
         try {
-            // Check if user exists by signing in, then create if they don't
-            const userCredential = await signInWithEmailAndPassword(auth, user.email, 'password123').catch(async (error) => {
-                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-                     console.log(`- Creating auth user for: ${user.email}`);
-                    return await createUserWithEmailAndPassword(auth, user.email, 'password123');
-                }
-                throw error;
-            });
+            console.log(`- Creating auth user for: ${user.email}`);
+            const userCredential = await createUserWithEmailAndPassword(auth, user.email, 'password123');
             authUser = userCredential.user;
-            console.log(`- Verified existing auth user: ${user.email} (UID: ${authUser.uid})`);
-
+            console.log(`- Created auth user: ${user.email} (UID: ${authUser.uid})`);
         } catch (error: any) {
-            console.error(`  - Error with user ${user.email}:`, error.message);
-            throw error; // Stop the script if a user fails for an unexpected reason
+            if (error.code === 'auth/email-already-in-use') {
+                // If user exists, sign in to get their UID
+                console.log(`- User ${user.email} already exists. Signing in...`);
+                const userCredential = await signInWithEmailAndPassword(auth, user.email, 'password123');
+                authUser = userCredential.user;
+                console.log(`- Verified existing auth user: ${user.email} (UID: ${authUser.uid})`);
+            } else {
+                 console.error(`  - Error creating user ${user.email}:`, error.message);
+                throw error; // Stop the script if a user fails for an unexpected reason
+            }
         }
         
         userIdMap[user.tempId] = authUser.uid;
@@ -176,5 +177,3 @@ seed().then(() => {
     console.error("An unexpected error occurred during the seeding process:", error);
     process.exit(1);
 });
-
-    
