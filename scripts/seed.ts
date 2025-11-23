@@ -119,15 +119,14 @@ async function seed() {
 
     // 4. Seed Initiatives with mapped UIDs
     console.log('Seeding initiatives with mapped user UIDs...');
-    const initiatives = initiativesRaw.map(init => ({
-        ...init,
-        leadIds: init.leadIds.map(tempId => userIdMap[tempId]),
-        teamMemberIds: init.teamMemberIds.map(tempId => userIdMap[tempId]),
-    }));
-
-    initiatives.forEach(initiative => {
-        const initiativeRef = doc(db, 'initiatives', initiative.id);
-        batch.set(initiativeRef, initiative);
+    initiativesRaw.forEach(initRaw => {
+        const initiativeRef = doc(db, 'initiatives', initRaw.id);
+        const mappedInitiative = {
+            ...initRaw,
+            leadIds: initRaw.leadIds.map(tempId => userIdMap[tempId]).filter(Boolean), // Filter out any undefineds
+            teamMemberIds: initRaw.teamMemberIds.map(tempId => userIdMap[tempId]).filter(Boolean),
+        };
+        batch.set(initiativeRef, mappedInitiative);
     });
     console.log('Initiatives added to batch.');
 
@@ -141,8 +140,12 @@ async function seed() {
     }));
 
     tasks.forEach(task => {
-        const taskRef = doc(db, 'initiatives', task.initiativeId, 'tasks', task.id);
-        batch.set(taskRef, task);
+        if (task.ownerId) { // Ensure ownerId was found
+            const taskRef = doc(db, 'initiatives', task.initiativeId, 'tasks', task.id);
+            batch.set(taskRef, task);
+        } else {
+            console.warn(`- Skipping task "${task.title}" due to missing owner mapping.`);
+        }
     });
     console.log('Tasks added to batch.');
 
@@ -155,8 +158,12 @@ async function seed() {
     }));
 
     attachments.forEach(attachment => {
-        const attachmentRef = doc(db, 'initiatives', attachment.initiativeId, 'attachments', attachment.id);
-        batch.set(attachmentRef, attachment);
+        if (attachment.uploadedBy) { // Ensure uploadedBy was found
+            const attachmentRef = doc(db, 'initiatives', attachment.initiativeId, 'attachments', attachment.id);
+            batch.set(attachmentRef, attachment);
+        } else {
+            console.warn(`- Skipping attachment "${attachment.fileName}" due to missing uploader mapping.`);
+        }
     });
     console.log('Attachments added to batch.');
 
