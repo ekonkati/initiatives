@@ -72,26 +72,30 @@ async function seed() {
     for (const user of usersRaw) {
         let authUser: AuthUser;
         try {
-            console.log(`- Creating auth user for: ${user.email}`);
+            // Attempt to create the user
             const userCredential = await createUserWithEmailAndPassword(auth, user.email, 'password123');
             authUser = userCredential.user;
             console.log(`- Created auth user: ${user.email} (UID: ${authUser.uid})`);
         } catch (error: any) {
             if (error.code === 'auth/email-already-in-use') {
-                // If user exists, sign in to get their UID
+                // If user already exists, sign in to get their UID
                 console.log(`- User ${user.email} already exists. Signing in...`);
                 const userCredential = await signInWithEmailAndPassword(auth, user.email, 'password123');
                 authUser = userCredential.user;
                 console.log(`- Verified existing auth user: ${user.email} (UID: ${authUser.uid})`);
             } else {
-                 console.error(`  - Error creating user ${user.email}:`, error.message);
-                throw error; // Stop the script if a user fails for an unexpected reason
+                // For other errors, log them and stop the script
+                console.error(`  - Error processing user ${user.email}:`, error.message);
+                throw error;
             }
         }
         
+        // Map the temporary ID to the real Firebase UID
         userIdMap[user.tempId] = authUser.uid;
+
+        // Prepare the user profile for Firestore, using the real UID
         userProfiles.push({
-            id: authUser.uid,
+            id: authUser.uid, // Use the real UID
             name: user.name,
             email: user.email,
             role: user.role as User['role'],
@@ -108,7 +112,7 @@ async function seed() {
     // 3. Seed User Profiles in Firestore with correct UIDs
     console.log('Seeding user profiles into Firestore...');
     userProfiles.forEach(profile => {
-        const userRef = doc(db, 'users', profile.id);
+        const userRef = doc(db, 'users', profile.id); // Use the real UID as the document ID
         batch.set(userRef, profile);
     });
     console.log('User profiles added to batch.');
@@ -172,8 +176,10 @@ async function seed() {
 }
 
 seed().then(() => {
-    process.exit(0);
+    // Gracefully exit the script
 }).catch(error => {
     console.error("An unexpected error occurred during the seeding process:", error);
     process.exit(1);
 });
+
+    
