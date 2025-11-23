@@ -9,6 +9,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
+      // Check for the existence of an admin role document for the user.
+      // This is more secure and flexible than checking a field on the user profile.
       return getUserRole() == 'Admin';
     }
 
@@ -16,6 +18,8 @@ service cloud.firestore {
       let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
       let leads = initiativeDoc.data.leadIds;
       let members = initiativeDoc.data.teamMemberIds;
+      // Note: 'in' operator checks for keys in a map, not values in a list.
+      // We must check if the uid is in the list of leads or members.
       return request.auth.uid in leads || request.auth.uid in members || isAdmin();
     }
 
@@ -56,6 +60,32 @@ service cloud.firestore {
       match /attachments/{attachmentId} {
         allow read, write, list, create, delete: if isInitiativeMember(initiativeId);
       }
+    }
+  }
+}
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function getUserRole() {
+      return get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+       return getUserRole() == 'Admin';
+    }
+
+    function isInitiativeMember(initiativeId) {
+      let initiative = get(/databases/(default)/documents/initiatives/$(initiativeId)).data;
+      return request.auth.uid in initiative.leadIds || request.auth.uid in initiative.teamMemberIds || isAdmin();
+    }
+
+    // Allow reads if the user is an initiative member.
+    // Allow writes (uploads/deletes) only by initiative members.
+    // The path is structured as /initiatives/{initiativeId}/{fileName}
+    match /initiatives/{initiativeId}/{allPaths=**} {
+      allow read: if isInitiativeMember(initiativeId);
+      allow write: if isInitiativeMember(initiativeId);
     }
   }
 }

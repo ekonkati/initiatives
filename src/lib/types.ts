@@ -1,4 +1,5 @@
 
+
 export interface User {
   id: string;
   name: string;
@@ -59,9 +60,10 @@ export interface Attachment {
   initiativeId: string;
   name: string;
   url: string; 
+  path: string;
   fileType: string;
   uploadedBy: string; // user ID
-  createdAt: string;
+  createdAt: { seconds: number, nanoseconds: number };
 }
 
 export interface InitiativeRating {
