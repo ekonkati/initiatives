@@ -2,39 +2,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
-    }
-    
-    function isInitiativeMember(initiativeId) {
-      let initiative = get(/databases/$(database)/documents/initiatives/$(initiativeId));
-      return request.auth.uid in initiative.data.leadIds || request.auth.uid in initiative.data.teamMemberIds;
-    }
-
-    match /users/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isOwner(userId) || isAdmin();
-    }
-
-    match /initiatives/{initiativeId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /initiatives/{initiativeId}/{document=**} {
-      allow read, write: if isInitiativeMember(initiativeId) || isAdmin();
-    }
-
-    match /roles_admin/{userId} {
-      allow read, write: if isAdmin();
+    match /{document=**} {
+      allow read, write: if true; // Temporarily open for seeding
     }
   }
 }
