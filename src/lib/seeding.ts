@@ -184,7 +184,7 @@ export async function runSeed(db: Firestore, auth: Auth) {
         tasksRaw.filter(t => t.initiativeId === initRaw.id).forEach(taskRaw => {
             const ownerId = userIdMap[taskRaw.ownerId];
             if (ownerId) {
-                const taskRef = doc(db, 'initiatives', initRaw.id, 'tasks', taskRaw.id);
+                const taskRef = doc(collection(db, 'initiatives', initRaw.id, 'tasks'), taskRaw.id);
                 batch.set(taskRef, { ...taskRaw, ownerId, contributorIds: [] });
             }
         });
