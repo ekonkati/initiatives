@@ -4,22 +4,26 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to get a user's role from their profile
-    function getUserRole(userId) {
-      let userDoc = get(/databases/$(database)/documents/users/$(userId));
-      return userDoc.data.role;
-    }
-
-    // Helper function to check if a user is an admin
+    // Helper function to check if a user is an admin by reading their role from their profile.
     function isAdmin() {
-      return getUserRole(request.auth.uid) == 'Admin';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
     }
 
-    // Helper function to check if a user is a member of an initiative from a resource
+    // Helper function to check if a user is a member of an initiative from the initiative's data.
+    // This is used for rules on an initiative document itself.
     function isInitiativeMember(initiativeData) {
       return request.auth.uid in initiativeData.leadIds || 
              request.auth.uid in initiativeData.teamMemberIds || 
              isAdmin();
+    }
+    
+    // Helper function to check initiative membership by fetching the initiative document.
+    // This is used for rules on subcollections where the initiative data isn't directly available.
+    function isMemberOfInitiative(initiativeId) {
+        let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
+        return request.auth.uid in initiativeDoc.data.leadIds ||
+               request.auth.uid in initiativeDoc.data.teamMemberIds ||
+               isAdmin();
     }
 
     // Default deny all
@@ -45,7 +49,6 @@ service cloud.firestore {
     // Rules for initiatives and their subcollections
     match /initiatives/{initiativeId} {
       // Allow authenticated users to list initiatives for the main page.
-      // Detailed read/write is checked below.
       allow list: if request.auth.uid != null;
       
       // Allow read/write only if the user is a member of the initiative.
@@ -54,14 +57,12 @@ service cloud.firestore {
 
       // Tasks subcollection
       match /tasks/{taskId} {
-        // Here we must use get() because the task document doesn't contain initiative membership.
-        allow read, write, list: if isInitiativeMember(get(/databases/$(database)/documents/initiatives/$(initiativeId)).data);
+        allow read, write, list: if isMemberOfInitiative(initiativeId);
       }
       
       // Attachments subcollection
       match /attachments/{attachmentId} {
-         // Here we must use get() because the attachment document doesn't contain initiative membership.
-        allow read, write, list: if isInitiativeMember(get(/databases/$(database)/documents/initiatives/$(initiativeId)).data);
+        allow read, write, list: if isMemberOfInitiative(initiativeId);
       }
     }
   }
@@ -70,21 +71,18 @@ service cloud.firestore {
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper function to get a user's role from their profile
-    function getUserRole(userId) {
-      let userDoc = get(/databases/$(database)/documents/users/$(userId));
-      return userDoc.data.role;
-    }
-
-    // Helper function to check if a user is an admin
+    // Helper function to check if a user is an admin by reading their role from their profile.
     function isAdmin() {
-      return getUserRole(request.auth.uid) == 'Admin';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
     }
 
     // Allow members of an initiative to read/write to that initiative's attachment folder
     function isInitiativeMember(initiativeId) {
       let initiative = get(/databases/$(database)/documents/initiatives/$(initiativeId)).data;
-      return request.auth.uid in initiative.leadIds || request.auth.uid in initiative.teamMemberIds || isAdmin();
+      // CORRECTED LOGIC: Use 'in' operator on the list itself.
+      return request.auth.uid in initiative.leadIds || 
+             request.auth.uid in initiative.teamMemberIds || 
+             isAdmin();
     }
     
     match /initiatives/{initiativeId}/attachments/{allPaths=**} {
