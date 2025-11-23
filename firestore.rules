@@ -1,200 +1,40 @@
-/**
- * Core Philosophy: This ruleset enforces a collaborative, role-based security model
- * centered around 'Initiatives'. Access is primarily determined by a user's role
- * as an Admin, or their membership within a specific initiative (as a lead or
- * team member).
- *
- * Data Structure:
- * - /users/{userId}: Private user profiles, editable only by the owner or an Admin.
- * - /initiatives/{initiativeId}: Collaborative workspaces. Access to an initiative
- *   and all its nested subcollections (tasks, attachments, etc.) is granted to
- *   members listed in the initiative's 'leadIds' or 'teamMemberIds' arrays.
- * - /roles_admin/{userId}: A simple collection where the existence of a document
- *   grants a user global Admin privileges across the entire database.
- *
- * Key Security Decisions:
- * - Admin Supremacy: Users with a document in `/roles_admin` have full read/write
- *   access to all data, providing essential administrative oversight.
- * - Initiative-Scoped Access: All subcollections under an initiative (e.g., tasks,
- *   attachments, ratings) inherit their access control from the parent initiative.
- *   This is achieved by checking the user's membership in the parent document,
- *   which is a secure and efficient pattern for nested collaborative data.
- * - User Enumeration Prevention: Listing all users is restricted to Admins to
- *   protect user privacy.
- * - Secure Creation: Users can create initiatives but must add themselves as a lead
- *   in the same transaction. Similarly, when creating items like tasks or attachments,
- *   the creator's ID must be correctly set, ensuring auditable ownership from the start.
- *
- * Denormalization for Authorization:
- * The security model relies heavily on denormalization for performance and security.
- * The `initiatives` documents contain `leadIds` and `teamMemberIds` arrays. This
- * allows rules to grant access to an entire data tree with a single document read,
- * avoiding slow, complex, or impossible queries against other collections.
- *
- * Structural Segregation:
- * User data, initiative data, and administrative roles are stored in separate
- * top-level collections. This clear separation allows for distinct and simple
- * security rules for each data type, preventing rule conflicts and enhancing clarity.
- */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --------------------------------------------------------------------
-    // Helper Functions
-    // --------------------------------------------------------------------
-
-    /**
-     * Checks if the user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the requesting user is the owner of a document.
-     * Compares the request's auth UID with the provided userId from the path.
-     */
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    /**
-     * Checks if the user has global admin privileges.
-     * This is determined by the existence of their UID in the roles_admin collection.
-     */
     function isAdmin() {
       return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
-
-    /**
-     * Checks if a document being modified or deleted already exists.
-     * Prevents writes to non-existent documents.
-     */
-    function isExistingDoc() {
-      return resource != null;
-    }
-
-    /**
-     * Checks if the requesting user is a lead for a given initiative.
-     * Requires a 'get' call to the parent initiative document.
-     */
-    function isInitiativeLead(initiativeId) {
-      let initiative = get(/databases/$(database)/documents/initiatives/$(initiativeId)).data;
-      return request.auth.uid in initiative.leadIds;
-    }
-
-    /**
-     * Checks if the requesting user is a member (lead or team) of an initiative.
-     * Requires a 'get' call to the parent initiative document.
-     */
+    
     function isInitiativeMember(initiativeId) {
-      let initiative = get(/databases/$(database)/documents/initiatives/$(initiativeId)).data;
-      return request.auth.uid in initiative.leadIds || request.auth.uid in initiative.teamMemberIds;
+      let initiative = get(/databases/$(database)/documents/initiatives/$(initiativeId));
+      return request.auth.uid in initiative.data.leadIds || request.auth.uid in initiative.data.teamMemberIds;
     }
 
-    // --------------------------------------------------------------------
-    // Collection Rules
-    // --------------------------------------------------------------------
-
-    /**
-     * @description Manages user profile documents.
-     * @path /users/{userId}
-     * @allow (get) An authenticated user with UID 'user_abc' can read their own profile at /users/user_abc.
-     * @deny (get) A user with UID 'user_xyz' is denied from reading /users/user_abc.
-     * @principle Restricts access to a user's own data tree, but allows admin override.
-     */
     match /users/{userId} {
-      allow read, write: if true; // TEMPORARILY OPEN FOR SEEDING
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId) || isAdmin();
     }
 
-    /**
-     * @description Manages initiative documents, the core collaborative entity.
-     * @path /initiatives/{initiativeId}
-     * @allow (update) An 'initiative lead' can update the document to add a new team member.
-     * @deny (delete) A regular 'team member' cannot delete the initiative; only a lead or admin can.
-     * @principle Enforces collaborator-based access using a denormalized member list.
-     */
     match /initiatives/{initiativeId} {
-       allow read, write: if true; // TEMPORARILY OPEN FOR SEEDING
+      allow read, write: if isSignedIn();
     }
 
-    /**
-     * @description Manages tasks, which are nested under an initiative.
-     * @path /initiatives/{initiativeId}/tasks/{taskId}
-     * @allow (create) A member of initiative 'init_123' can create a new task within it.
-     * @deny (get) A user who is not a member of initiative 'init_123' cannot read its tasks.
-     * @principle Inherits permissions from the parent document, granting access to all initiative members.
-     */
-    match /initiatives/{initiativeId}/tasks/{taskId} {
-       allow read, write: if true; // TEMPORARILY OPEN FOR SEEDING
+    match /initiatives/{initiativeId}/{document=**} {
+      allow read, write: if isInitiativeMember(initiativeId) || isAdmin();
     }
 
-    /**
-     * @description Manages attachments nested under an initiative.
-     * @path /initiatives/{initiativeId}/attachments/{attachmentId}
-     * @allow (create) An initiative member can upload an attachment, correctly setting 'uploadedBy' to their own UID.
-     * @deny (create) An initiative member cannot create an attachment and set 'uploadedBy' to another user's UID.
-     * @principle Inherits permissions and validates relational integrity on creation.
-     */
-    match /initiatives/{initiativeId}/attachments/{attachmentId} {
-       allow read, write: if true; // TEMPORARILY OPEN FOR SEEDING
-    }
-
-    /**
-     * @description Manages performance ratings for an initiative.
-     * @path /initiatives/{initiativeId}/initiativeRatings/{initiativeRatingId}
-     * @allow (get) Any member of the initiative can read the ratings for that initiative.
-     * @deny (update) A non-member of the initiative cannot update a rating.
-     * @principle Inherits permissions from the parent document for consistent subcollection security.
-     */
-    match /initiatives/{initiativeId}/initiativeRatings/{initiativeRatingId} {
-      allow get, list: if isInitiativeMember(initiativeId) || isAdmin();
-      allow create: if (isInitiativeMember(initiativeId) || isAdmin()) && request.resource.data.ratedBy == request.auth.uid;
-      allow update: if (isInitiativeMember(initiativeId) || isAdmin()) && isExistingDoc();
-      allow delete: if (isInitiativeMember(initiativeId) || isAdmin()) && isExistingDoc();
-    }
-
-    /**
-     * @description Manages performance ratings for users within an initiative.
-     * @path /initiatives/{initiativeId}/userRatings/{userRatingId}
-     * @allow (create) An initiative member can create a rating for another user in the same initiative.
-     * @deny (list) A user who is not part of the initiative is denied from listing user ratings.
-     * @principle Inherits permissions from the parent document for consistent subcollection security.
-     */
-    match /initiatives/{initiativeId}/userRatings/{userRatingId} {
-      allow get, list: if isInitiativeMember(initiativeId) || isAdmin();
-      allow create: if (isInitiativeMember(initiativeId) || isAdmin()) && request.resource.data.ratedBy == request.auth.uid;
-      allow update: if (isInitiativeMember(initiativeId) || isAdmin()) && isExistingDoc();
-      allow delete: if (isInitiativeMember(initiativeId) || isAdmin()) && isExistingDoc();
-    }
-
-    /**
-     * @description Manages daily check-in records for an initiative.
-     * @path /initiatives/{initiativeId}/dailyCheckins/{dailyCheckinId}
-     * @allow (create) An initiative member can submit a daily check-in for the project.
-     * @deny (delete) A user who is not a member of the initiative cannot delete a check-in record.
-     * @principle Inherits permissions from the parent document for consistent subcollection security.
-     */
-    match /initiatives/{initiativeId}/dailyCheckins/{dailyCheckinId} {
-      allow get, list: if isInitiativeMember(initiativeId) || isAdmin();
-      allow create: if (isInitiativeMember(initiativeId) || isAdmin()) && request.resource.data.createdBy == request.auth.uid;
-      allow update: if (isInitiativeMember(initiativeId) || isAdmin()) && isExistingDoc();
-      allow delete: if (isInitiativeMember(initiativeId) || isAdmin()) && isExistingDoc();
-    }
-
-    /**
-     * @description Manages admin role grants. Existence of a document here makes a user an admin.
-     * @path /roles_admin/{userId}
-     * @allow (create) An existing admin can create a document to grant another user admin rights.
-     * @deny (create) A non-admin user cannot create a document here to elevate their own privileges.
-     * @principle Secures role management by restricting modifications to existing role-holders (admins).
-     */
     match /roles_admin/{userId} {
-      allow get, list: if isAdmin();
-      allow create, delete: if isAdmin();
-      allow update: if false;
+      allow read, write: if isAdmin();
     }
-
   }
 }
