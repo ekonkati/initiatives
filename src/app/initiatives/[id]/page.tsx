@@ -14,7 +14,7 @@ import { useInitiative, useTasksForInitiative, useUsers, useAttachmentsForInitia
 import { RAGStatus, Task, User, TaskStatus, Attachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { ChevronLeft, Clock, File, GanttChartSquare, Pencil, PlusCircle, Star, Trash2, MoreHorizontal, ExternalLink, FilePenLine } from "lucide-react";
+import { ChevronLeft, Clock, File, GanttChartSquare, Pencil, PlusCircle, Star, Trash2, MoreHorizontal, ExternalLink, FilePenLine, UploadCloud } from "lucide-react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
@@ -86,7 +86,7 @@ export default function InitiativeDetailPage() {
         return notFound();
     }
 
-    const isMember = authUser && (initiative.leadIds.includes(authUser.uid) || initiative.teamMemberIds.includes(authUser.uid));
+    const isMember = authUser && (initiative.leadIds.includes(authUser.uid) || initiative.teamMemberIds.includes(authUser.uid) || (userMap[authUser.uid]?.role === 'Admin'));
 
 
     return (
@@ -546,6 +546,7 @@ function DocumentManager({ initiativeId, attachments, userMap, isMember }: Docum
 
     const handleAddNew = () => {
         setEditingAttachment(null);
+        window.open('https://drive.google.com/drive/my-drive', '_blank');
         setIsFormOpen(true);
     };
 
@@ -601,11 +602,11 @@ function DocumentManager({ initiativeId, attachments, userMap, isMember }: Docum
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Documents</CardTitle>
-                        <CardDescription>Manage Google Drive links for this initiative.</CardDescription>
+                        <CardDescription>Manage Google Drive files for this initiative.</CardDescription>
                     </div>
                      {isMember && (
                         <Button onClick={handleAddNew}>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Document Link
+                            <UploadCloud className="mr-2 h-4 w-4" /> Upload to Google Drive
                         </Button>
                     )}
                 </CardHeader>
@@ -697,8 +698,8 @@ function AttachmentFormDialog({ attachment, open, onOpenChange, onSubmit }: Atta
     }, [attachment, form]);
 
 
-    const title = attachment ? "Edit Document Link" : "Add Document Link";
-    const description = attachment ? "Update the details for this document link." : "Add a new Google Drive link to this initiative.";
+    const title = attachment ? "Edit Document Link" : "Add New Document from Google Drive";
+    const description = attachment ? "Update the details for this document link." : "Upload a file to your Google Drive, then paste the shareable link below.";
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -718,8 +719,8 @@ function AttachmentFormDialog({ attachment, open, onOpenChange, onSubmit }: Atta
                         )} />
                         <FormField control={form.control} name="url" render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Google Drive URL</FormLabel>
-                                <FormControl><Input placeholder="https://docs.google.com/..." {...field} /></FormControl>
+                                <FormLabel>Google Drive Link</FormLabel>
+                                <FormControl><Input placeholder="Paste the shareable link from Google Drive here" {...field} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )} />

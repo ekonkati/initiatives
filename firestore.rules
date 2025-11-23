@@ -4,26 +4,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if a user is an admin by reading their role from their profile.
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Helper function to check if a user is a member of an initiative from the initiative's data.
-    // This is used for rules on an initiative document itself.
-    function isInitiativeMember(initiativeData) {
-      return request.auth.uid in initiativeData.leadIds || 
-             request.auth.uid in initiativeData.teamMemberIds || 
-             isAdmin();
+    function isAdmin() {
+      return getUserRole() == 'Admin';
     }
-    
-    // Helper function to check initiative membership by fetching the initiative document.
-    // This is used for rules on subcollections where the initiative data isn't directly available.
-    function isMemberOfInitiative(initiativeId) {
-        let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
-        return request.auth.uid in initiativeDoc.data.leadIds ||
-               request.auth.uid in initiativeDoc.data.teamMemberIds ||
-               isAdmin();
+
+    function isInitiativeMember(initiativeId) {
+      let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
+      let leads = initiativeDoc.data.leadIds;
+      let members = initiativeDoc.data.teamMemberIds;
+      return request.auth.uid in leads || request.auth.uid in members || isAdmin();
     }
 
     // Default deny all
@@ -52,16 +45,16 @@ service cloud.firestore {
       allow list: if request.auth.uid != null;
       
       // Allow read/write only if the user is a member of the initiative.
-      allow read, write: if isInitiativeMember(resource.data);
+      allow read, write: if isInitiativeMember(initiativeId);
 
       // Tasks subcollection
       match /tasks/{taskId} {
-        allow read, write, list: if isMemberOfInitiative(initiativeId);
+        allow read, write, list, create, delete: if isInitiativeMember(initiativeId);
       }
       
       // Attachments subcollection
       match /attachments/{attachmentId} {
-        allow read, write, list: if isMemberOfInitiative(initiativeId);
+        allow read, write, list, create, delete: if isInitiativeMember(initiativeId);
       }
     }
   }
