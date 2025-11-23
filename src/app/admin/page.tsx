@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUsers, useInitiatives, useDepartments, useDesignations } from "@/lib/data";
 import { Department, Designation, User } from "@/lib/types";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { Database, MoreHorizontal, PlusCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -20,7 +20,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { collection, doc, setDoc, updateDoc, deleteDoc, addDoc } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
+import { useFirestore, useAuth } from "@/firebase";
+import { useToast } from "@/hooks/use-toast";
+import { runSeed } from "@/lib/seeding";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
 
 // Schemas
 const userFormSchema = z.object({
@@ -50,6 +54,8 @@ export default function AdminPage() {
     const designations = designationsData || [];
     
     const firestore = useFirestore();
+    const auth = useAuth();
+    const { toast } = useToast();
 
     const [isUserFormOpen, setIsUserFormOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -59,6 +65,8 @@ export default function AdminPage() {
 
     const [isDesigFormOpen, setIsDesigFormOpen] = useState(false);
     const [editingDesig, setEditingDesig] = useState<Designation | null>(null);
+
+    const [isSeeding, setIsSeeding] = useState(false);
 
     const categories = useMemo(() => {
         if (!initiativesData) return [];
@@ -112,6 +120,26 @@ export default function AdminPage() {
         }
     };
 
+    const handleSeedDatabase = async () => {
+        setIsSeeding(true);
+        try {
+            await runSeed(firestore, auth);
+            toast({
+                title: "Success",
+                description: "Database has been seeded successfully.",
+            });
+        } catch (error) {
+            console.error("Seeding failed:", error);
+            toast({
+                title: "Error",
+                description: "Failed to seed the database. Check console for details.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsSeeding(false);
+        }
+    }
+
 
     return (
         <AppShell>
@@ -127,6 +155,7 @@ export default function AdminPage() {
                         <TabsTrigger value="departments">Departments</TabsTrigger>
                         <TabsTrigger value="designations">Designations</TabsTrigger>
                         <TabsTrigger value="ratings">Rating Dimensions</TabsTrigger>
+                        <TabsTrigger value="system">System</TabsTrigger>
                     </TabsList>
                     
                     {/* Users Tab */}
@@ -239,6 +268,41 @@ export default function AdminPage() {
                                 onClose={() => setIsDesigFormOpen(false)}
                             />
                         </Dialog>
+                    </TabsContent>
+
+                    {/* System Tab */}
+                    <TabsContent value="system" className="mt-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>System Actions</CardTitle>
+                                <CardDescription>Perform system-level operations. Use with caution.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                 <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" disabled={isSeeding}>
+                                            <Database className="mr-2 h-4 w-4" /> 
+                                            {isSeeding ? "Seeding..." : "Seed Database"}
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This action will permanently delete all existing users, initiatives, tasks, departments, and designations from the database and replace them with the default sample data. This cannot be undone.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleSeedDatabase}>Continue</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                                <p className="text-sm text-muted-foreground mt-2">
+                                    This will wipe all current data and load the initial sample data set.
+                                </p>
+                            </CardContent>
+                        </Card>
                     </TabsContent>
                 </Tabs>
             </main>
@@ -451,4 +515,6 @@ function MasterDataFormDialog({ item, title, description, onSubmit, onClose }: M
         </DialogContent>
     );
 }
+    
+
     
