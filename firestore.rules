@@ -69,6 +69,18 @@ service cloud.firestore {
 
 service firebase.storage {
   match /b/{bucket}/o {
+
+    // Helper function to get a user's role from their profile
+    function getUserRole(userId) {
+      let userDoc = get(/databases/$(database)/documents/users/$(userId));
+      return userDoc.data.role;
+    }
+
+    // Helper function to check if a user is an admin
+    function isAdmin() {
+      return getUserRole(request.auth.uid) == 'Admin';
+    }
+
     // Allow members of an initiative to read/write to that initiative's attachment folder
     function isInitiativeMember(initiativeId) {
       let initiative = get(/databases/$(database)/documents/initiatives/$(initiativeId)).data;
