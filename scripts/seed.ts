@@ -6,6 +6,7 @@ import { getFirestore, doc, writeBatch } from 'firebase/firestore';
 import { firebaseConfig } from '../src/firebase/config';
 import { PlaceHolderImages } from '../src/lib/placeholder-images';
 import { User } from '@/lib/types';
+import data from '@/lib/placeholder-images.json';
 
 // --- DATA TO SEED ---
 
@@ -59,7 +60,7 @@ async function seed() {
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    const imageMap = PlaceHolderImages.reduce((acc, img) => {
+    const imageMap = data.placeholderImages.reduce((acc, img) => {
         acc[img.id] = img.imageUrl;
         return acc;
     }, {} as Record<string, string>);
@@ -189,3 +190,5 @@ seed().then(() => {
     console.error("An unexpected error occurred during the seeding process:", error);
     process.exit(1);
 });
+
+    
