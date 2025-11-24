@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/icons"
 import Link from "next/link"
-import { useAuth } from "@/firebase";
+import { useAuth, useUser } from "@/firebase";
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from "next/navigation";
 import { doc, setDoc } from 'firebase/firestore';
@@ -23,17 +23,29 @@ export default function SignupPage() {
     const auth = useAuth();
     const firestore = useFirestore();
     const router = useRouter();
+    const { user: authUser, isUserLoading } = useUser();
+    
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        // Redirect if user is already logged in
+        if (!isUserLoading && authUser) {
+            router.push('/');
+        }
+    }, [authUser, isUserLoading, router]);
 
     const handleSignup = async () => {
+        if (!auth || !firestore) return;
         setError(null);
         if (!name) {
             setError("Please enter your name.");
             return;
         }
+        setIsLoading(true);
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
@@ -54,7 +66,12 @@ export default function SignupPage() {
             router.push('/'); // Redirect to dashboard after successful signup
         } catch (error: any) {
             setError(error.message);
+            setIsLoading(false);
         }
+    }
+
+    if (isUserLoading) {
+      return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
     }
 
   return (
@@ -79,6 +96,7 @@ export default function SignupPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
             <div className="grid gap-2">
@@ -90,6 +108,7 @@ export default function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
             <div className="grid gap-2">
@@ -100,10 +119,11 @@ export default function SignupPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required 
+                disabled={isLoading}
               />
             </div>
-            <Button onClick={handleSignup} type="submit" className="w-full">
-                Create Account
+            <Button onClick={handleSignup} type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Creating Account...' : 'Create Account'}
             </Button>
           </div>
           <div className="mt-4 text-center text-sm">

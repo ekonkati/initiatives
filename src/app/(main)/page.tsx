@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -13,7 +12,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-import { AppShell } from '@/components/app-shell';
 import { Header } from '@/components/header';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -48,7 +46,7 @@ const RAG_MAP: Record<RAGStatus, string> = {
 export default function DashboardPage() {
   const { user: authUser, isUserLoading } = useAuthUser();
   const { data: currentUser } = useUser(authUser?.uid); 
-  const { data: allInitiativesData } = useInitiatives();
+  const { data: allInitiativesData, isLoading: isLoadingInitiatives } = useInitiatives();
   const { data: myTasksData, isLoading: isLoadingTasks } = useTasksForUser(currentUser?.id);
   const { data: allUsersData, isLoading: isLoadingUsers } = useUsers();
   
@@ -94,26 +92,23 @@ export default function DashboardPage() {
   };
 
 
-  if (isUserLoading || isLoadingTasks || isLoadingUsers) {
+  if (isUserLoading || isLoadingTasks || isLoadingUsers || isLoadingInitiatives) {
     return (
-        <AppShell>
+        <>
             <Header />
             <main className="flex-1 p-4 pt-6 md:p-8">
                 <div>Loading...</div>
             </main>
-        </AppShell>
+        </>
     );
   }
 
   if (!currentUser) return (
-    <AppShell>
-      <Header />
       <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
         <div className="flex items-center justify-center h-full">
             <p>Please <Link href="/login" className="underline">log in</Link> to see your dashboard.</p>
         </div>
       </main>
-    </AppShell>
   );
 
   const stats = {
@@ -126,7 +121,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <AppShell>
+    <>
       <Header />
       <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
         <div className="flex items-center justify-between space-y-2">
@@ -240,7 +235,7 @@ export default function DashboardPage() {
         />
         )}
       </main>
-    </AppShell>
+    </>
   );
 }
 

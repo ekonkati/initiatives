@@ -1,7 +1,5 @@
-
 'use client';
 
-import { AppShell } from "@/components/app-shell";
 import { Header } from "@/components/header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -38,12 +36,12 @@ export default function PersonDetailPage() {
 
     if (isLoadingUser || isLoadingInitiatives || isLoadingTasks) {
         return (
-             <AppShell>
+             <>
                 <Header />
                 <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
                     <div>Loading...</div>
                 </main>
-            </AppShell>
+            </>
         );
     }
     
@@ -53,7 +51,7 @@ export default function PersonDetailPage() {
 
 
     return (
-        <AppShell>
+        <>
             <Header />
             <main className="flex-1 space-y-6 p-4 pt-6 md:p-8">
                  <div className="flex items-center gap-4">
@@ -132,7 +130,7 @@ export default function PersonDetailPage() {
                     </div>
                 </div>
             </main>
-        </AppShell>
+        </>
     )
 }
 
@@ -164,5 +162,3 @@ function TaskItem({ task }: { task: Task }) {
         </li>
     )
 }
-
-    

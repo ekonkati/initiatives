@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useInitiatives, useUsers } from "@/lib/data";
@@ -42,6 +41,7 @@ export default function InitiativesPage() {
     const users = usersData || [];
 
     const userMap = useMemo(() => {
+        if (!users) return {};
         return users.reduce((acc, user) => {
             acc[user.id] = user;
             return acc;
@@ -49,6 +49,7 @@ export default function InitiativesPage() {
     }, [users]);
     
     const themes = useMemo(() => {
+        if (!initiatives) return [];
         return [...new Set(initiatives.map(i => i.category))];
     }, [initiatives]);
 
@@ -73,7 +74,7 @@ export default function InitiativesPage() {
     };
 
     return (
-        <AppShell>
+        <>
             <Header />
             <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
                 <div className="flex items-center justify-between space-y-2">
@@ -186,6 +187,6 @@ export default function InitiativesPage() {
                     />
                 )}
             </main>
-        </AppShell>
+        </>
     )
 }

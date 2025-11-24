@@ -1,4 +1,3 @@
-
 "use client";
 
 import { AppShell } from "@/components/app-shell";
@@ -91,12 +90,12 @@ export default function InitiativeDetailPage() {
 
     if (isLoading) {
         return (
-            <AppShell>
+            <>
                 <Header />
                 <main className="flex-1 flex items-center justify-center p-4">
                     <div>Loading initiative details...</div>
                 </main>
-            </AppShell>
+            </>
         );
     }
     
@@ -113,7 +112,7 @@ export default function InitiativeDetailPage() {
 
 
     return (
-        <AppShell>
+        <>
             <Header />
             <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
                 <div className="flex items-center justify-between gap-4">
@@ -272,7 +271,7 @@ export default function InitiativeDetailPage() {
                     />
                 )}
             </main>
-        </AppShell>
+        </>
     );
 }
 

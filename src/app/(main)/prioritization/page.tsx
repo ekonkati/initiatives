@@ -1,7 +1,5 @@
-
 'use client';
 
-import { AppShell } from "@/components/app-shell";
 import { Header } from "@/components/header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +16,7 @@ export default function PrioritizationPage() {
     const priority3 = initiatives.filter(i => i.priority === 'Low' || i.status === 'Not Started');
 
     return (
-        <AppShell>
+        <>
             <Header />
             <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
                 <div className="flex items-center justify-between space-y-2">
@@ -35,7 +33,7 @@ export default function PrioritizationPage() {
                     <PriorityColumn title="Priority 3 - Long Term" initiatives={priority3} />
                 </div>
             </main>
-        </AppShell>
+        </>
     )
 }
 

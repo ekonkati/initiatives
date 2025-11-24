@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from "@/components/ui/button"
@@ -30,11 +29,16 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        // Redirect if user is already logged in
+        // Redirect if user is already logged in and not loading
         if (!isUserLoading && authUser) {
             router.push('/');
         }
     }, [authUser, isUserLoading, router]);
+    
+    // While checking auth state, don't render the form
+    if (isUserLoading) {
+        return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    }
 
     const handleLogin = async () => {
         if (!auth) return;
@@ -113,5 +117,3 @@ export default function LoginPage() {
     </div>
   )
 }
-
-    

@@ -1,7 +1,5 @@
-
 'use client';
 
-import { AppShell } from "@/components/app-shell";
 import { Header } from "@/components/header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -17,7 +15,7 @@ export default function PeoplePage() {
     const users = usersData || [];
 
     return (
-        <AppShell>
+        <>
             <Header />
             <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
                 <div className="flex items-center justify-between space-y-2">
@@ -71,6 +69,6 @@ export default function PeoplePage() {
                     ))}
                 </div>
             </main>
-        </AppShell>
+        </>
     )
 }

@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { AppShell } from "@/components/app-shell";
@@ -81,6 +79,7 @@ export default function AdminPage() {
     };
 
     const handleDeactivateUser = async (user: User) => {
+        if (!firestore) return;
         const userRef = doc(firestore, 'users', user.id);
         await updateDoc(userRef, { active: false });
         toast({
@@ -90,6 +89,7 @@ export default function AdminPage() {
     };
 
     const onUserFormSubmit = async (values: UserFormValues) => {
+        if (!firestore) return;
         if (editingUser) {
             const userRef = doc(firestore, 'users', editingUser.id);
             await updateDoc(userRef, values);
@@ -104,6 +104,7 @@ export default function AdminPage() {
 
     // Master Data Handlers (Generic)
     const handleMasterDataSubmit = (collectionName: string, setFormOpen: (open: boolean) => void, setEditing: (item: any) => void, editingItem: any) => async (values: MasterDataFormValues) => {
+        if (!firestore) return;
         if (editingItem) {
             const itemRef = doc(firestore, collectionName, editingItem.id);
             await updateDoc(itemRef, values);
@@ -115,9 +116,8 @@ export default function AdminPage() {
     };
     
     const handleMasterDataDelete = (collectionName: string) => async (item: { id: string, name: string }) => {
-        if (confirm(`Are you sure you want to delete ${item.name}?`)) {
-            await deleteDoc(doc(firestore, collectionName, item.id));
-        }
+        if (!firestore) return;
+        await deleteDoc(doc(firestore, collectionName, item.id));
     };
 
     const handleSeedDatabase = async () => {
@@ -145,7 +145,7 @@ export default function AdminPage() {
 
 
     return (
-        <AppShell>
+        <>
             <Header />
             <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
                 <div className="flex items-center justify-between space-y-2">
@@ -205,7 +205,7 @@ export default function AdminPage() {
                                                                 {user.active && (
                                                                 <AlertDialog>
                                                                     <AlertDialogTrigger asChild>
-                                                                        <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-red-500">
+                                                                        <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-red-500 hover:text-red-600">
                                                                             Deactivate
                                                                         </div>
                                                                     </AlertDialogTrigger>
@@ -251,7 +251,6 @@ export default function AdminPage() {
                             data={categories.map(c => ({ id: c, name: c }))} // Adapt for string array
                             onAddNew={() => alert("Adding/Editing categories not implemented in this view.")}
                             onEdit={() => alert("Adding/Editing categories not implemented in this view.")}
-                            onDelete={() => alert("Deleting categories not implemented in this view.")}
                         />
                     </TabsContent>
 
@@ -264,7 +263,11 @@ export default function AdminPage() {
                                 data={departments}
                                 onAddNew={() => { setEditingDept(null); setIsDeptFormOpen(true); }}
                                 onEdit={(item) => { setEditingDept(item); setIsDeptFormOpen(true); }}
-                                onDelete={handleMasterDataDelete('departments')}
+                                onDelete={(item) => {
+                                    if(confirm(`Are you sure you want to delete ${item.name}?`)) {
+                                       handleMasterDataDelete('departments')(item)
+                                    }
+                                }}
                             />
                             <MasterDataFormDialog
                                 key={editingDept ? `dept-${editingDept.id}`: 'new-dept'}
@@ -286,7 +289,11 @@ export default function AdminPage() {
                                 data={designations}
                                 onAddNew={() => { setEditingDesig(null); setIsDesigFormOpen(true); }}
                                 onEdit={(item) => { setEditingDesig(item); setIsDesigFormOpen(true); }}
-                                onDelete={handleMasterDataDelete('designations')}
+                                onDelete={(item) => {
+                                    if(confirm(`Are you sure you want to delete ${item.name}?`)) {
+                                        handleMasterDataDelete('designations')(item)
+                                    }
+                                }}
                             />
                             <MasterDataFormDialog
                                 key={editingDesig ? `desig-${editingDesig.id}`: 'new-desig'}
@@ -369,7 +376,7 @@ export default function AdminPage() {
                     </TabsContent>
                 </Tabs>
             </main>
-        </AppShell>
+        </>
     );
 }
 
@@ -380,7 +387,7 @@ interface MasterDataTableProps {
     data: { id: string; name: string }[];
     onAddNew: () => void;
     onEdit: (item: { id: string; name: string }) => void;
-    onDelete: (item: { id: string; name: string }) => void;
+    onDelete?: (item: { id: string; name: string }) => void;
 }
 
 function MasterDataTable({ title, description, data, onAddNew, onEdit, onDelete }: MasterDataTableProps) {
@@ -414,7 +421,7 @@ function MasterDataTable({ title, description, data, onAddNew, onEdit, onDelete 
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
                                             <DropdownMenuItem onClick={() => onEdit(item)}>Edit</DropdownMenuItem>
-                                            <DropdownMenuItem className="text-red-500" onClick={() => onDelete(item)}>Delete</DropdownMenuItem>
+                                            {onDelete && <DropdownMenuItem className="text-red-500" onClick={() => onDelete(item)}>Delete</DropdownMenuItem>}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -575,5 +582,3 @@ function MasterDataFormDialog({ item, title, description, onSubmit, onClose }: M
         </DialogContent>
     );
 }
-
-    
