@@ -38,42 +38,44 @@ export const useUser = (id: string | undefined) => {
 export const useInitiatives = () => {
     const firestore = useFirestore();
     const { user: authUser } = useAuthUser();
+    // First, we get the current user's full profile, which now includes 'initiativeMemberships'.
     const { data: currentUser, isLoading: isUserLoading } = useUser(authUser?.uid);
 
     const initiativesQuery = useMemoFirebase(() => {
         if (!firestore || isUserLoading || !currentUser) {
-            return null; // Return null if firestore, user profile, or auth user is not ready
+            // Return null if we don't have what we need yet. The useCollection hook will handle this.
+            return null;
         }
         
-        // Admin Case: Fetch all initiatives
+        // Admin Case: Admins can see everything.
         if (currentUser.role === 'Admin') {
             return query(collection(firestore, 'initiatives'));
         }
 
-        // Non-Admin Case: Fetch initiatives based on the denormalized list
+        // Non-Admin Case: Use the denormalized list of IDs for a direct and secure query.
         const initiativeIds = currentUser.initiativeMemberships;
 
-        // If the user is not a member of any initiatives, return a query that finds nothing
-        // to avoid an error with an empty 'in' array.
+        // If the user isn't a member of any initiatives, we must return a query that finds nothing
+        // to avoid an error from Firestore for an empty 'in' array.
         if (!initiativeIds || initiativeIds.length === 0) {
             return query(collection(firestore, 'initiatives'), where(documentId(), 'in', ['non-existent-id']));
         }
         
-        // Firestore 'in' queries are limited to 30 items. We must chunk the requests.
-        // For this app, we will assume a user is not in more than 30 initiatives.
-        // In a real-world scenario with more than 30, you'd need to run multiple queries
-        // and combine the results on the client.
+        // Firestore 'in' queries are limited to 30 items per query.
+        // For this app, we will assume a user is a member of fewer than 30 initiatives.
+        // For a larger-scale app, we would need to chunk this into multiple queries.
         if (initiativeIds.length > 30) {
-             console.warn("User is a member of more than 30 initiatives. The query will be chunked, but this is not fully implemented and will only show the first 30.");
+             console.warn("User is a member of more than 30 initiatives. The query will be chunked, but this is not fully implemented and may result in incomplete data.");
              const chunk = initiativeIds.slice(0, 30);
              return query(collection(firestore, 'initiatives'), where(documentId(), 'in', chunk));
         }
         
-        // Standard case for a user with 1-30 initiatives
+        // This is the standard, secure query for a regular user.
         return query(collection(firestore, 'initiatives'), where(documentId(), 'in', initiativeIds));
 
     }, [firestore, currentUser, isUserLoading]);
 
+    // This hook will now receive a correctly constrained query and will not get a permissions error.
     return useCollection<Initiative>(initiativesQuery);
 };
 

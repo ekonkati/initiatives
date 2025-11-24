@@ -19,10 +19,10 @@ service cloud.firestore {
       return isUserAuthenticated() && request.auth.uid == userId;
     }
 
+    // This is the new, more efficient check.
     function isInitiativeMember(initiativeId) {
-      // This function now securely checks the denormalized list on the user's own profile.
-      let userProfile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return initiativeId in userProfile.initiativeMemberships;
+      // Securely checks the denormalized list on the user's own profile.
+      return isUserAuthenticated() && initiativeId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.initiativeMemberships;
     }
     
     // --- Rules ---
@@ -37,13 +37,13 @@ service cloud.firestore {
     
     // INITIATIVES
     match /initiatives/{initiativeId} {
-      // An admin can read any initiative.
-      // A user can read an initiative if its ID is in their 'initiativeMemberships' list.
-      // This rule works for both `get` and `list` (with an `in` query).
-      allow read: if isAdmin() || (initiativeId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.initiativeMemberships);
+      // Admins can do anything.
+      // Other users can read an initiative IF its ID is in their membership list.
+      // This rule now correctly supports both `get` and `list` (with an `in` query).
+      allow read: if isAdmin() || isInitiativeMember(initiativeId);
       
-      // Write access is granted to members (leads/team) or admins.
-      // We check the initiative document's own lists for write permissions.
+      // Write access is granted to members by checking the initiative document's own lists.
+      // This is okay because you can't write to a document you can't read first.
       allow write: if isAdmin() || (request.auth.uid in resource.data.leadIds || request.auth.uid in resource.data.teamMemberIds);
     }
     
@@ -63,9 +63,8 @@ service cloud.firestore {
 
     // INITIATIVE SUBCOLLECTIONS
     // Access to subcollections (tasks, documents, etc.) is granted if the user is a member of the parent initiative.
-    // This check now uses the initiative's own member lists, which is appropriate for writes within the subcollection.
     match /initiatives/{initiativeId}/{allChildren=**} {
-      allow read, write: if isAdmin() || (request.auth.uid in get(/databases/$(database)/documents/initiatives/$(initiativeId)).data.leadIds || request.auth.uid in get(/databases/$(database)/documents/initiatives/$(initiativeId)).data.teamMemberIds);
+      allow read, write: if isAdmin() || isInitiativeMember(initiativeId);
     }
   }
 }

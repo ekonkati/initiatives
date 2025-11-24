@@ -280,7 +280,7 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
         
         // Build the map of which initiatives each user is in
         initiativesRaw.forEach(init => {
-            const allMembers = [...init.leadEmails, ...init.memberEmails];
+            const allMembers = [...new Set([...init.leadEmails, ...init.memberEmails])]; // Use Set to remove duplicates
             allMembers.forEach(email => {
                 const lowerEmail = email.toLowerCase();
                 if (!emailToInitiativeIdsMap.has(lowerEmail)) {
@@ -332,6 +332,7 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
                         designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
                         active: true,
                         photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
+                        // This is the new denormalized field being populated
                         initiativeMemberships: emailToInitiativeIdsMap.get(emailLower) || [],
                     };
                     userProfileBatch.set(userRef, userProfile);
