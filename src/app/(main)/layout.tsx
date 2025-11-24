@@ -4,6 +4,7 @@ import { AppShell } from '@/components/app-shell';
 import { FirebaseClientProvider, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 function MainApp({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -27,7 +28,7 @@ function MainApp({ children }: { children: React.ReactNode }) {
   }
 
   // Only render the main app shell if there is a logged-in user.
-  return <AppShell>{children}</AppShell>;
+  return <AppShell><FirebaseErrorListener />{children}</AppShell>;
 }
 
 export default function MainLayout({
