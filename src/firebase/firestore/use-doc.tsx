@@ -49,18 +49,11 @@ export function useDoc<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    if (memoizedDocRef === null) {
-      // If the ref is explicitly null (e.g. auth is loading), set a non-loading empty state.
+     // If the ref is null or undefined (e.g. auth is loading, dependencies not ready), 
+    // set a stable, non-loading empty state and do not proceed.
+    if (!memoizedDocRef) {
       setData(null);
       setIsLoading(false);
-      setError(null);
-      return;
-    }
-
-    if (memoizedDocRef === undefined) {
-      // If the ref is undefined (truly not ready), remain in a loading state.
-      setData(null);
-      setIsLoading(true);
       setError(null);
       return;
     }

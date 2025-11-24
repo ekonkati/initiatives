@@ -63,18 +63,11 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    if (memoizedTargetRefOrQuery === null) {
-      // If the query is explicitly null (e.g. auth is loading), set a non-loading empty state.
+    // If the query is null or undefined (e.g. auth is loading, dependencies not ready), 
+    // set a stable, non-loading empty state and do not proceed.
+    if (!memoizedTargetRefOrQuery) {
       setData(null);
       setIsLoading(false);
-      setError(null);
-      return;
-    }
-    
-    if (memoizedTargetRefOrQuery === undefined) {
-      // If the query is undefined (truly not ready), remain in a loading state.
-      setData(null);
-      setIsLoading(true);
       setError(null);
       return;
     }
