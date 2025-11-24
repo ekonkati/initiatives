@@ -53,7 +53,7 @@ export function useDoc<T = any>(
     // set a stable, non-loading empty state and do not proceed.
     if (!memoizedDocRef) {
       setData(null);
-      setIsLoading(false);
+      setIsLoading(false); // Not loading because we are not fetching.
       setError(null);
       return;
     }
