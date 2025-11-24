@@ -63,9 +63,10 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // If the query is null or undefined, it means we are not ready to fetch data.
-    // This happens when auth state is loading or required IDs are not available yet.
-    // We set loading to false and data to null, and simply wait for a valid query.
+    if (memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
+      throw new Error('Query passed to useCollection was not memoized with useMemoFirebase');
+    }
+
     if (!memoizedTargetRefOrQuery) {
       setIsLoading(false);
       setData(null);
@@ -74,7 +75,6 @@ export function useCollection<T = any>(
     }
 
     setIsLoading(true);
-    setError(null);
 
     const unsubscribe = onSnapshot(
       memoizedTargetRefOrQuery,
@@ -108,10 +108,6 @@ export function useCollection<T = any>(
 
     return () => unsubscribe();
   }, [memoizedTargetRefOrQuery]);
-  
-  if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error('Query passed to useCollection was not memoized with useMemoFirebase');
-  }
 
   return { data, isLoading, error };
 }
