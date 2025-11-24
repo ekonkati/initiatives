@@ -3,7 +3,7 @@
 /* eslint-disable no-console */
 
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, type User as AuthUser, Auth } from 'firebase/auth';
-import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc, query, WriteBatch, addDoc, Firestore } from 'firebase/firestore';
+import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc, query, WriteBatch, addDoc, Firestore, where } from 'firebase/firestore';
 import data from '@/lib/placeholder-images.json';
 import { User } from '@/lib/types';
 
@@ -12,7 +12,7 @@ import { User } from '@/lib/types';
 
 const usersRaw = [
     // Admin
-    { name: 'Alia Hassan', email: 'alia.hassan@example.com', role: 'Admin', department: 'Executive', designation: 'CEO', tempId: 'admin-user' },
+    { name: 'Alia Hassan', email: 'alia.hassan@example.com', role: 'Admin', department: 'Executive', designation: 'CEO' },
     
     // Users from table
     { name: 'Srikanth', email: 'srikanth.volla@resustainability.com', role: 'Initiative Lead' },
@@ -198,15 +198,37 @@ async function deleteCollection(db: Firestore, collectionPath: string) {
     console.log(`- Successfully deleted ${snapshot.size} documents from '${collectionPath}'.`);
 }
 
+async function deleteNonAdminUsers(db: Firestore) {
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('role', '!=', 'Admin'));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        console.log('- No non-admin users found to delete.');
+        return;
+    }
+
+    const batchSize = 500;
+    for (let i = 0; i < snapshot.docs.length; i += batchSize) {
+        const batch = writeBatch(db);
+        snapshot.docs.slice(i, i + batchSize).forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+    }
+
+    console.log(`- Successfully deleted ${snapshot.size} non-admin user documents.`);
+}
+
 
 export async function runSeed(db: Firestore, auth: Auth) {
     console.log('--- Firebase Seeding Script ---');
     
-    console.log('STEP 1: Deleting previous data...');
+    console.log('STEP 1: Deleting previous data (preserving admin users)...');
     try {
         await Promise.all([
             deleteCollection(db, 'initiatives'),
-            deleteCollection(db, 'users'),
+            deleteNonAdminUsers(db), // This will preserve admins
             deleteCollection(db, 'departments'),
             deleteCollection(db, 'designations'),
         ]);
@@ -231,11 +253,9 @@ export async function runSeed(db: Firestore, auth: Auth) {
         } catch (error: any) {
             if (error.code === 'auth/email-already-in-use') {
                  console.warn(`[Seeding Warning] Auth user with email ${user.email} already exists. The script will not attempt to sign in or retrieve the existing user. A Firestore profile will still be created, but you may need to manually resolve the auth user state.`);
-                 // We will create a placeholder UID to avoid crashing, but this user won't be properly linked to auth
                  authUser = { uid: `existing-user-${user.email}` } as AuthUser;
             } else {
                 console.error(`  - Error processing user ${user.email}:`, error.message);
-                throw error;
             }
         }
         
@@ -263,10 +283,13 @@ export async function runSeed(db: Firestore, auth: Auth) {
 
     // Add Users
     userProfiles.forEach(profile => {
-        const userRef = doc(db, 'users', profile.id);
-        batch.set(userRef, profile);
+        // Do not re-add the admin if it was preserved
+        if (profile.role !== 'Admin') {
+            const userRef = doc(db, 'users', profile.id);
+            batch.set(userRef, profile);
+        }
     });
-    console.log(`- Added ${userProfiles.length} user profiles to the batch.`);
+    console.log(`- Added ${userProfiles.length - 1} user profiles to the batch.`);
     
     // Add Initiatives and Subcollections
     initiativesRaw.forEach(initRaw => {
@@ -327,3 +350,5 @@ export async function runSeed(db: Firestore, auth: Auth) {
 
     console.log('\n--- Seeding Complete! ---');
 }
+
+    
