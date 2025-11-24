@@ -37,33 +37,47 @@ export const useUser = (id: string | undefined) => {
 export const useInitiatives = () => {
     const firestore = useFirestore();
     const { user: authUser, isUserLoading } = useAuthUser();
-    const { data: currentUser, isLoading: isCurrentUserLoading } = useUser(authUser?.uid);
+    const [userRole, setUserRole] = useState<string | null>(null);
+    const [isRoleLoading, setIsRoleLoading] = useState(true);
+
+    useEffect(() => {
+        if (isUserLoading || !authUser || !firestore) {
+            if (!isUserLoading) {
+                setIsRoleLoading(false);
+                setUserRole(null);
+            }
+            return;
+        }
+
+        const userDocRef = doc(firestore, 'users', authUser.uid);
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setUserRole(docSnap.data().role);
+            } else {
+                setUserRole('Team Member'); // Default role if profile doesn't exist
+            }
+            setIsRoleLoading(false);
+        }, () => {
+            // Error case, default to non-admin
+            setUserRole('Team Member');
+            setIsRoleLoading(false);
+        });
+
+        return () => unsubscribe();
+
+    }, [authUser, firestore, isUserLoading]);
 
     const q = useMemoFirebase(() => {
-        if (isUserLoading || isCurrentUserLoading || !firestore || !authUser) {
-            return null;
+        if (isRoleLoading || !firestore || !authUser) {
+            return null; // Wait until we know the user's role
         }
 
-        // If the user's profile hasn't loaded yet, we can't determine their role.
-        if (!currentUser) {
-            // For a moment, a non-admin might not have their profile loaded.
-            // We can default to the secure query. If they are an admin, the hook will
-            // re-run once their profile loads and fetch all initiatives.
-            return query(
-                collection(firestore, 'initiatives'),
-                or(
-                    where('leadIds', 'array-contains', authUser.uid),
-                    where('teamMemberIds', 'array-contains', authUser.uid)
-                )
-            );
-        }
-
-        if (currentUser.role === 'Admin') {
+        if (userRole === 'Admin') {
             // Admin can see all initiatives.
             return query(collection(firestore, 'initiatives'));
         } else {
             // Regular users see only their own initiatives.
-            return query(
+             return query(
                 collection(firestore, 'initiatives'),
                 or(
                     where('leadIds', 'array-contains', authUser.uid),
@@ -71,7 +85,7 @@ export const useInitiatives = () => {
                 )
             );
         }
-    }, [firestore, authUser, isUserLoading, currentUser, isCurrentUserLoading]);
+    }, [firestore, authUser, userRole, isRoleLoading]);
 
     return useCollection<Initiative>(q);
 };
