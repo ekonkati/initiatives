@@ -13,8 +13,15 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
+import { useUser as useAuthUser } from '@/firebase';
+import { useUser } from '@/lib/data';
 
 export function MainNav() {
+  const { user: authUser } = useAuthUser();
+  const { data: currentUser } = useUser(authUser?.uid);
+
+  const isAdmin = currentUser?.role === 'Admin';
+
   return (
     <div className="flex-1 p-2">
       <SidebarMenu>
@@ -50,14 +57,16 @@ export function MainNav() {
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>
-        <SidebarMenuItem>
-          <SidebarMenuButton asChild tooltip="Admin">
-            <Link href="/admin">
-              <Settings />
-              <span>Admin</span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
+        {isAdmin && (
+            <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Admin">
+                <Link href="/admin">
+                <Settings />
+                <span>Admin</span>
+                </Link>
+            </SidebarMenuButton>
+            </SidebarMenuItem>
+        )}
       </SidebarMenu>
     </div>
   );

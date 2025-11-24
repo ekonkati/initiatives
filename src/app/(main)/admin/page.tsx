@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUsers, useInitiatives, useDepartments, useDesignations } from "@/lib/data";
 import { Department, Designation, User } from "@/lib/types";
-import { Database, MoreHorizontal, PlusCircle, Trash2, ShieldX } from "lucide-react";
+import { Database, MoreHorizontal, PlusCircle, Trash2, ShieldX, ShieldAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -21,13 +21,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { collection, doc, setDoc, updateDoc, deleteDoc, addDoc, writeBatch, getDocs, query } from "firebase/firestore";
-import { useFirestore, useAuth } from "@/firebase";
+import { useFirestore, useAuth, useUser as useAuthUser } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { runSeed, clearData } from "@/lib/seeding";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import { useRouter } from "next/navigation";
 
 
 // Schemas
@@ -48,11 +49,13 @@ type MasterDataFormValues = z.infer<typeof masterDataFormSchema>;
 
 
 export default function AdminPage() {
+    const { user: authUser } = useAuthUser();
     const { data: usersData, isLoading: isLoadingUsers } = useUsers();
     const { data: initiativesData } = useInitiatives();
     const { data: departmentsData } = useDepartments();
     const { data: designationsData } = useDesignations();
 
+    const router = useRouter();
     const allUsers = usersData || [];
     const departments = departmentsData || [];
     const designations = designationsData || [];
@@ -75,6 +78,13 @@ export default function AdminPage() {
     const [seedingProgress, setSeedingProgress] = useState({ message: "", percentage: 0 });
     
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+    
+    const currentUser = useMemo(() => {
+        if (!authUser || !allUsers.length) return null;
+        return allUsers.find(u => u.id === authUser.uid);
+    }, [authUser, allUsers]);
+
+    const isAdmin = currentUser?.role === 'Admin';
 
 
     const categories = useMemo(() => {
@@ -186,6 +196,41 @@ export default function AdminPage() {
             setIsProcessing(false);
             setSeedingProgress({ message: "", percentage: 0 });
         }
+    }
+
+    if (isLoadingUsers) {
+        return (
+             <>
+                <Header />
+                <main className="flex-1 flex items-center justify-center p-4">
+                    <div className="rounded-md border bg-card px-6 py-3 text-lg font-semibold shadow-sm">Loading...</div>
+                </main>
+            </>
+        )
+    }
+
+    if (!isAdmin) {
+        return (
+            <>
+                <Header />
+                 <main className="flex-1 flex items-center justify-center p-4">
+                    <Card className="w-full max-w-md text-center">
+                        <CardHeader>
+                            <CardTitle className="flex items-center justify-center gap-2 text-xl text-destructive">
+                                <ShieldAlert className="h-6 w-6"/>
+                                Access Denied
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p>You do not have permission to view this page. Please contact an administrator if you believe this is an error.</p>
+                            <Button className="mt-6" onClick={() => router.push('/dashboard')}>
+                                Return to Dashboard
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </main>
+            </>
+        )
     }
 
 
