@@ -100,10 +100,11 @@ export function useCollection<T = any>(
           path,
         })
 
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
+        setError(contextualError);
+        setData(null);
+        setIsLoading(false);
 
+        // Emit the contextual error for the global listener
         errorEmitter.emit('permission-error', contextualError);
       }
     );
