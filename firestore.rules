@@ -14,7 +14,7 @@ service cloud.firestore {
       // Check if a user document exists and if their role is 'Admin'.
       // Note: This relies on the user's profile document being present.
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return isUserAuthenticated() && userDoc.data.role == 'Admin';
+      return isUserAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && userDoc.data.role == 'Admin';
     }
 
     function isOwner(userId) {
@@ -24,10 +24,11 @@ service cloud.firestore {
     function isInitiativeMember(initiativeId) {
       let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
       // Check if the user is an admin OR if their UID is in the leadIds or teamMemberIds lists.
+      // Use hasAny() for list membership check.
       return isUserAuthenticated() && 
              (isAdmin() || 
-              (initiativeDoc.data.leadIds != null && request.auth.uid in initiativeDoc.data.leadIds) ||
-              (initiativeDoc.data.teamMemberIds != null && request.auth.uid in initiativeDoc.data.teamMemberIds));
+              (initiativeDoc.data.leadIds.hasAny([request.auth.uid])) ||
+              (initiativeDoc.data.teamMemberIds.hasAny([request.auth.uid])));
     }
 
     // --- Rules ---
