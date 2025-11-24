@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUsers, useInitiatives, useDepartments, useDesignations } from "@/lib/data";
 import { Department, Designation, User } from "@/lib/types";
-import { Database, MoreHorizontal, PlusCircle } from "lucide-react";
+import { Database, MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -18,12 +18,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { collection, doc, setDoc, updateDoc, deleteDoc, addDoc } from "firebase/firestore";
+import { collection, doc, setDoc, updateDoc, deleteDoc, addDoc, writeBatch } from "firebase/firestore";
 import { useFirestore, useAuth } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { runSeed } from "@/lib/seeding";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
 
 // Schemas
@@ -68,6 +69,8 @@ export default function AdminPage() {
 
     const [isSeeding, setIsSeeding] = useState(false);
     const [seedConfirmation, setSeedConfirmation] = useState("");
+    
+    const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
 
     const categories = useMemo(() => {
@@ -90,6 +93,41 @@ export default function AdminPage() {
             description: `${user.name} has been deactivated.`,
         });
     };
+    
+    const handleDeleteSelectedUsers = async () => {
+        if (!firestore || selectedUsers.length === 0) return;
+
+        const batch = writeBatch(firestore);
+        selectedUsers.forEach(userId => {
+            const userRef = doc(firestore, 'users', userId);
+            batch.delete(userRef);
+        });
+
+        try {
+            await batch.commit();
+            toast({
+                title: "Users Deleted",
+                description: `${selectedUsers.length} user(s) have been deleted.`,
+            });
+            setSelectedUsers([]);
+        } catch (error) {
+            console.error("Error deleting users:", error);
+            toast({
+                title: "Error",
+                description: "Failed to delete users.",
+                variant: "destructive",
+            });
+        }
+    };
+    
+    const handleSelectAllUsers = (checked: boolean | 'indeterminate') => {
+        if (checked === true) {
+            setSelectedUsers(users.map(u => u.id));
+        } else {
+            setSelectedUsers([]);
+        }
+    };
+
 
     const onUserFormSubmit = async (values: UserFormValues) => {
         if (!firestore) return;
@@ -170,13 +208,45 @@ export default function AdminPage() {
                          <Dialog open={isUserFormOpen} onOpenChange={(open) => { setIsUserFormOpen(open); if (!open) setEditingUser(null); }}>
                             <Card>
                                 <CardHeader>
-                                    <CardTitle>User Management</CardTitle>
-                                    <CardDescription>Edit or remove users from the system.</CardDescription>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <CardTitle>User Management</CardTitle>
+                                            <CardDescription>Edit, remove, or deactivate users from the system.</CardDescription>
+                                        </div>
+                                        {selectedUsers.length > 0 && (
+                                             <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="destructive">
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Delete Selected ({selectedUsers.length})
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            This will permanently delete the selected user profiles from Firestore. This action cannot be undone. Authentication accounts will not be deleted.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={handleDeleteSelectedUsers}>Continue</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        )}
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
+                                                <TableHead className="w-[40px]">
+                                                    <Checkbox
+                                                        checked={selectedUsers.length > 0 && selectedUsers.length === users.length}
+                                                        onCheckedChange={handleSelectAllUsers}
+                                                    />
+                                                </TableHead>
                                                 <TableHead>Name</TableHead>
                                                 <TableHead>Email</TableHead>
                                                 <TableHead>Role</TableHead>
@@ -188,14 +258,22 @@ export default function AdminPage() {
                                         <TableBody>
                                             {isLoadingUsers ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={6}>
+                                                    <TableCell colSpan={7}>
                                                         <div className="flex justify-center p-8">
                                                           <div className="rounded-md border bg-card px-6 py-3 text-lg font-semibold shadow-sm">Loading...</div>
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
                                             ) : users.map(user => (
-                                                <TableRow key={user.id}>
+                                                <TableRow key={user.id} data-state={selectedUsers.includes(user.id) && "selected"}>
+                                                    <TableCell>
+                                                         <Checkbox
+                                                            checked={selectedUsers.includes(user.id)}
+                                                            onCheckedChange={(checked) => {
+                                                                setSelectedUsers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id));
+                                                            }}
+                                                        />
+                                                    </TableCell>
                                                     <TableCell className="font-medium">{user.name}</TableCell>
                                                     <TableCell>{user.email}</TableCell>
                                                     <TableCell>{user.role}</TableCell>
