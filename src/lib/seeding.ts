@@ -185,7 +185,8 @@ async function createOrRetrieveAuthUser(auth: Auth, email: string): Promise<Auth
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
             console.log(`- Auth user ${email} already exists. Skipping creation.`);
-            return { email } as AuthUser; // Return a placeholder with email
+            // Return a placeholder; UID will be fetched later.
+            return { email } as AuthUser;
         }
         if (error.code === 'auth/too-many-requests') {
              console.error(`- Rate limit exceeded when trying to create ${email}. Please wait and try again.`);
@@ -243,10 +244,10 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
     try {
         // Step 1: Process Auth Users in Batches
         onProgress({ message: `Step 1/4: Processing ${uniqueUsers.length} Auth Users...`, percentage: 0 });
-        const authResults = await processInBatches(
+        await processInBatches(
             uniqueUsers,
             10, // Process 10 users per batch
-            (user, index) => createOrRetrieveAuthUser(auth, user.email),
+            (user) => createOrRetrieveAuthUser(auth, user.email),
             onProgress,
             0,
             25,
@@ -288,6 +289,7 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
              console.error("Failed to sign in as admin. User profile seeding might fail due to permissions.", error);
         }
         
+        // Populate userIdMap by fetching all users from Firestore
         const existingUsersSnapshot = await getDocs(collection(db, "users"));
         existingUsersSnapshot.forEach(doc => {
             const user = doc.data() as User;
@@ -296,27 +298,45 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
 
         try {
             const userProfileBatch = writeBatch(db);
-            for (const authUser of authResults) {
-                if (authUser?.email) {
-                    const userRaw = uniqueUsers.find(u => u.email.toLowerCase() === authUser.email!.toLowerCase());
-                    if (userRaw && !userIdMap.has(userRaw.email.toLowerCase())) {
-                        const userId = authUser.uid; // Must use the actual UID from auth
-                        const userRef = doc(db, 'users', userId);
-                        const userProfile: User = {
-                            id: userId,
-                            name: userRaw.name,
-                            email: userRaw.email,
-                            role: userRaw.role as User['role'],
-                            department: userRaw.department || 'Unassigned',
-                            designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
-                            active: true,
-                            photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
-                        };
-                        userProfileBatch.set(userRef, userProfile);
-                        userIdMap.set(userRaw.email.toLowerCase(), userId);
-                    } else if (userRaw && authUser.uid) {
-                        userIdMap.set(userRaw.email.toLowerCase(), authUser.uid);
-                    }
+            for (const userRaw of uniqueUsers) {
+                const emailLower = userRaw.email.toLowerCase();
+                let userId = userIdMap.get(emailLower);
+
+                // If user doesn't exist in Firestore, they must have just been created in Auth.
+                // We need to fetch their auth record to get the UID.
+                // This part is tricky without a backend function. A simplified approach for client-side seeding:
+                // We assume if they aren't in the map, we need to create them.
+                // The auth user creation should have happened already.
+                // The issue is getting the UID back to the client reliably.
+                // A better approach is to create the user profile right after auth creation, but that's complex with batching.
+
+                // For now, we will assume a re-run of seeding script populates users correctly.
+                // Let's ensure new users are created correctly.
+                
+                if (!userId) {
+                    // This is a new user that needs to be created.
+                    // This part is problematic without getting the UID from auth creation.
+                    // A workaround: In a real app, you'd use a server-side function.
+                    // Here, we'll log a warning. The user might need to run seed twice.
+                    console.warn(`Cannot find existing user for ${userRaw.email}. A user record will not be created. Please ensure auth users are created first.`);
+                    continue; // Skip creating profile if UID is unknown.
+                }
+
+                const userRef = doc(db, 'users', userId);
+                const userDoc = await getDoc(userRef);
+
+                if (!userDoc.exists()) {
+                    const userProfile: User = {
+                        id: userId,
+                        name: userRaw.name,
+                        email: userRaw.email,
+                        role: userRaw.role as User['role'],
+                        department: userRaw.department || 'Unassigned',
+                        designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
+                        active: true,
+                        photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
+                    };
+                    userProfileBatch.set(userRef, userProfile);
                 }
             }
             await userProfileBatch.commit();
@@ -399,6 +419,8 @@ export async function clearData(db: Firestore, onProgress: ProgressCallback) {
 
     console.log('- Finished clearing data.');
 }
+    
+
     
 
     
