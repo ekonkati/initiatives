@@ -26,6 +26,20 @@ service cloud.firestore {
       
       return isUserAuthenticated() && (isAdmin() || isLead || isTeamMember);
     }
+    
+    // This rule is separate to handle the collection-level query for initiatives.
+    // Admins can list all initiatives.
+    // Other users can list initiatives where their UID is in the leadIds or teamMemberIds.
+    // The client query MUST match this condition.
+    match /initiatives/{initiativeId} {
+        allow read, write: if isInitiativeMember(initiativeId);
+    }
+    
+    // The initiatives collection can be listed if the user is an admin OR
+    // if the query constrains the search to initiatives where the user is a member.
+    match /initiatives/{initiativeId} {
+       allow list: if isAdmin() || (request.query.where.in_ == [['leadIds', 'array-contains', request.auth.uid], ['teamMemberIds', 'array-contains', request.auth.uid]]);
+    }
 
     // --- Rules ---
 
@@ -53,11 +67,7 @@ service cloud.firestore {
 
     // INITIATIVES & SUBCOLLECTIONS
     match /initiatives/{initiativeId} {
-      // A user can read/write an initiative if they are a member or an admin.
-      // This rule applies to both GET and LIST queries.
-      // For LIST, the client query MUST be constrained to what this rule allows.
-      allow read, write: if isInitiativeMember(initiativeId);
-
+      
       // TASKS, ATTACHMENTS, and other subcollections
       // Inherit the parent initiative's membership check for all operations.
       match /{allChildren=**} {
