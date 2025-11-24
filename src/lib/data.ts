@@ -35,8 +35,10 @@ export const useInitiatives = () => {
 
 export const useInitiative = (id: string | undefined) => {
     const firestore = useFirestore();
+    const { isUserLoading } = useAuthUser();
     const docRef = useMemoFirebase(() => (id ? doc(firestore, 'initiatives', id) : null), [firestore, id]);
-    return useDoc<Initiative>(docRef);
+    const { data, isLoading, error } = useDoc<Initiative>(docRef);
+    return { data, isLoading: isLoading || isUserLoading, error };
 };
 
 
@@ -54,15 +56,15 @@ export const useAttachmentsForInitiative = (initiativeId: string | undefined) =>
 
 export const useTasksForUser = (userId: string | undefined) => {
     const firestore = useFirestore();
-    const { isUserLoading } = useAuthUser();
+    const { user, isUserLoading } = useAuthUser();
 
     // Create a collection group query across all 'tasks' subcollections.
     // This is much more efficient than fetching all initiatives first.
     const tasksQuery = useMemoFirebase(() => {
-        if (!userId) return null;
+        if (!userId || !user) return null;
         // Query the 'tasks' collection group, filtering by the ownerId.
         return query(collectionGroup(firestore, 'tasks'), where('ownerId', '==', userId));
-    }, [firestore, userId]);
+    }, [firestore, userId, user]);
 
     // Use the existing useCollection hook with the new, efficient query.
     const result = useCollection<Task>(tasksQuery);
