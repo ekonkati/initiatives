@@ -32,15 +32,10 @@ function LoginComponent() {
     useEffect(() => {
         // Redirect if user is already logged in and not loading
         if (!isUserLoading && authUser) {
-            router.push('/');
+            router.replace('/');
         }
     }, [authUser, isUserLoading, router]);
     
-    // While checking auth state, don't render the form
-    if (isUserLoading) {
-        return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-    }
-
     const handleLogin = async () => {
         if (!auth) return;
         setIsLoading(true);
@@ -56,6 +51,21 @@ function LoginComponent() {
             setIsLoading(false);
         }
     }
+
+  // While checking auth state, show a loading screen.
+  // This is important for the redirect logic to work correctly.
+  if (isUserLoading) {
+      return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <div className="text-lg font-semibold">Loading...</div>
+        </div>
+      );
+  }
+  
+  // If user is already logged in, this will be blank briefly before redirect
+  if (authUser) {
+    return null;
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
