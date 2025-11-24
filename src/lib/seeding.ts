@@ -185,8 +185,7 @@ async function createOrRetrieveAuthUser(auth: Auth, email: string): Promise<Auth
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
             console.log(`- Auth user ${email} already exists. Skipping creation.`);
-            // Return a placeholder that the main logic can use to find the UID
-            return { email } as AuthUser;
+            return { email } as AuthUser; // Return a placeholder with email
         }
         if (error.code === 'auth/too-many-requests') {
              console.error(`- Rate limit exceeded when trying to create ${email}. Please wait and try again.`);
@@ -203,16 +202,32 @@ async function createOrRetrieveAuthUser(auth: Auth, email: string): Promise<Auth
 const processInBatches = async <T, R>(
     items: T[],
     batchSize: number,
-    processItem: (item: T) => Promise<R>
+    processItem: (item: T, index: number) => Promise<R>,
+    onProgress: ProgressCallback,
+    progressStart: number,
+    progressEnd: number,
+    progressMessage: string
 ): Promise<R[]> => {
     const results: R[] = [];
-    for (let i = 0; i < items.length; i += batchSize) {
-        const batch = items.slice(i, i + batchSize);
-        const batchResults = await Promise.all(batch.map(processItem));
-        results.push(...batchResults);
-        if (i + batchSize < items.length) {
-            // Wait for a short period before the next batch to avoid hitting rate limits
-            await new Promise(res => setTimeout(res, 1000));
+    const totalItems = items.length;
+    for (let i = 0; i < totalItems; i += batchSize) {
+        const batchItems = items.slice(i, i + batchSize);
+        const batchPromises = batchItems.map((item, index) => processItem(item, i + index));
+        
+        try {
+            const batchResults = await Promise.all(batchPromises);
+            results.push(...batchResults.filter(Boolean));
+        } catch (error) {
+            console.error("Error processing a batch, some items may have been skipped.", error);
+            // Decide if you want to re-throw or continue. For seeding, continuing might be better.
+        }
+
+        const itemsProcessed = Math.min(i + batchSize, totalItems);
+        const percentage = progressStart + (itemsProcessed / totalItems) * (progressEnd - progressStart);
+        onProgress({ message: `${progressMessage} (${itemsProcessed}/${totalItems})`, percentage });
+        
+        if (i + batchSize < totalItems) {
+            await new Promise(res => setTimeout(res, 1000)); // Wait 1s between batches
         }
     }
     return results;
@@ -222,115 +237,134 @@ const processInBatches = async <T, R>(
 // --- MAIN SEEDING SCRIPT ---
 
 export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCallback) {
-    const totalSteps = 4;
-    let currentStep = 0;
-    
     const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
     const userIdMap = new Map<string, string>();
 
     try {
-        currentStep++;
-        const authProgressStep = 1 / uniqueUsers.length;
-        onProgress({ message: `Step 1/${totalSteps}: Processing ${uniqueUsers.length} Auth Users...`, percentage: 0 });
+        // Step 1: Process Auth Users in Batches
+        onProgress({ message: `Step 1/4: Processing ${uniqueUsers.length} Auth Users...`, percentage: 0 });
+        const authResults = await processInBatches(
+            uniqueUsers,
+            10, // Process 10 users per batch
+            (user, index) => createOrRetrieveAuthUser(auth, user.email),
+            onProgress,
+            0,
+            25,
+            `Step 1/4: Processing Auth Users...`
+        );
+        onProgress({ message: `Step 1/4: Auth Users Processed.`, percentage: 25 });
+        
 
-        const authResults = await processInBatches(uniqueUsers, 10, async (user, index) => {
-            const result = await createOrRetrieveAuthUser(auth, user.email);
-            const progress = (currentStep -1 + (index + 1) * authProgressStep) / totalSteps * 100;
-            onProgress({ message: `Step 1/${totalSteps}: Processing Auth Users... (${index + 1}/${uniqueUsers.length})`, percentage: progress });
-            return result;
-        });
-
-        onProgress({ message: `Step 1/${totalSteps}: Auth Users Processed.`, percentage: currentStep / totalSteps * 100 });
-
-        currentStep++;
-        onProgress({ message: `Step 2/${totalSteps}: Seeding Master Data...`, percentage: (currentStep - 1) / totalSteps * 100 });
-        const masterBatch = writeBatch(db);
-        departmentsRaw.forEach(dept => {
-            const deptRef = doc(db, 'departments', dept.id);
-            masterBatch.set(deptRef, { name: dept.name });
-        });
-        designationsRaw.forEach(desig => {
-            const desigRef = doc(db, 'designations', desig.id);
-            masterBatch.set(desigRef, { name: desig.name });
-        });
-        await masterBatch.commit();
-        onProgress({ message: `Step 2/${totalSteps}: Master Data Seeded.`, percentage: currentStep / totalSteps * 100 });
+        // Step 2: Seed Master Data
+        onProgress({ message: `Step 2/4: Seeding Master Data...`, percentage: 25 });
+        try {
+            const masterBatch = writeBatch(db);
+            departmentsRaw.forEach(dept => {
+                const deptRef = doc(db, 'departments', dept.id);
+                masterBatch.set(deptRef, { name: dept.name });
+            });
+            designationsRaw.forEach(desig => {
+                const desigRef = doc(db, 'designations', desig.id);
+                masterBatch.set(desigRef, { name: desig.name });
+            });
+            await masterBatch.commit();
+            console.log("Master data seeded successfully.");
+        } catch (error) {
+            console.error("Seeding Master Data failed:", error);
+            // This is a critical error, so we might want to stop.
+            throw new Error("Failed to seed master data. " + (error as Error).message);
+        }
+        onProgress({ message: `Step 2/4: Master Data Seeded.`, percentage: 50 });
         
         
-        currentStep++;
-        onProgress({ message: `Step 3/${totalSteps}: Seeding User Profiles...`, percentage: (currentStep - 1) / totalSteps * 100 });
-        const userProfileBatch = writeBatch(db);
-
-        // First, sign in as admin to get permissions if needed. Note: This assumes admin exists.
-        await signInWithEmailAndPassword(auth, 'alia.hassan@example.com', 'password123');
-
-        // Fetch all existing user profiles from Firestore to prevent duplicates
+        // Step 3: Seed User Profiles
+        onProgress({ message: `Step 3/4: Seeding User Profiles...`, percentage: 50 });
+        
+        // Sign in as admin to get permissions for writing user profiles.
+        try {
+            await signInWithEmailAndPassword(auth, 'alia.hassan@example.com', 'password123');
+            console.log("Admin signed in successfully.");
+        } catch (error) {
+             console.error("Failed to sign in as admin. User profile seeding might fail due to permissions.", error);
+        }
+        
         const existingUsersSnapshot = await getDocs(collection(db, "users"));
         existingUsersSnapshot.forEach(doc => {
             const user = doc.data() as User;
             userIdMap.set(user.email.toLowerCase(), user.id);
         });
 
-        for (const authUser of authResults) {
-            if (authUser?.email) {
-                const userRaw = uniqueUsers.find(u => u.email.toLowerCase() === authUser.email!.toLowerCase());
-                // Only create a profile if it's not already in our map from Firestore
-                if (userRaw && !userIdMap.has(userRaw.email.toLowerCase())) {
-                    // This user doesn't exist in Firestore yet, create them.
-                    const userId = authUser.uid || doc(collection(db, 'users')).id; // Use real UID if available
-                    const userRef = doc(db, 'users', userId);
-                    const userProfile: User = {
-                        id: userId,
-                        name: userRaw.name,
-                        email: userRaw.email,
-                        role: userRaw.role as User['role'],
-                        department: userRaw.department || 'Unassigned',
-                        designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
-                        active: true,
-                        photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
-                    };
-                    userProfileBatch.set(userRef, userProfile);
-                    userIdMap.set(userRaw.email.toLowerCase(), userId);
-                } else if(userRaw && authUser.uid) {
-                    // The user exists in auth and firestore, ensure map has the correct UID
-                    userIdMap.set(userRaw.email.toLowerCase(), authUser.uid);
+        try {
+            const userProfileBatch = writeBatch(db);
+            for (const authUser of authResults) {
+                if (authUser?.email) {
+                    const userRaw = uniqueUsers.find(u => u.email.toLowerCase() === authUser.email!.toLowerCase());
+                    if (userRaw && !userIdMap.has(userRaw.email.toLowerCase())) {
+                        const userId = authUser.uid; // Must use the actual UID from auth
+                        const userRef = doc(db, 'users', userId);
+                        const userProfile: User = {
+                            id: userId,
+                            name: userRaw.name,
+                            email: userRaw.email,
+                            role: userRaw.role as User['role'],
+                            department: userRaw.department || 'Unassigned',
+                            designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
+                            active: true,
+                            photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
+                        };
+                        userProfileBatch.set(userRef, userProfile);
+                        userIdMap.set(userRaw.email.toLowerCase(), userId);
+                    } else if (userRaw && authUser.uid) {
+                        userIdMap.set(userRaw.email.toLowerCase(), authUser.uid);
+                    }
                 }
             }
+            await userProfileBatch.commit();
+            console.log("User profiles seeded successfully.");
+        } catch (error) {
+            console.error("Seeding User Profiles failed:", error);
+            // This is a critical error.
+            throw new Error("Failed to seed user profiles. " + (error as Error).message);
         }
-        await userProfileBatch.commit();
-        onProgress({ message: `Step 3/${totalSteps}: User Profiles Seeded.`, percentage: currentStep / totalSteps * 100 });
+        onProgress({ message: `Step 3/4: User Profiles Seeded.`, percentage: 75 });
 
 
-        currentStep++;
-        onProgress({ message: `Step 4/${totalSteps}: Seeding Initiatives...`, percentage: (currentStep - 1) / totalSteps * 100 });
-        const initiativeBatch = writeBatch(db);
-        
-        for (const initRaw of initiativesRaw) {
-            const initiativeRef = doc(db, 'initiatives', initRaw.id);
-            const mappedLeadIds = initRaw.leadEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
-            const mappedMemberIds = initRaw.memberEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
+        // Step 4: Seeding Initiatives
+        onProgress({ message: `Step 4/4: Seeding Initiatives...`, percentage: 75 });
+        try {
+            const initiativeBatch = writeBatch(db);
+            for (const initRaw of initiativesRaw) {
+                const initiativeRef = doc(db, 'initiatives', initRaw.id);
+                const mappedLeadIds = initRaw.leadEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
+                const mappedMemberIds = initRaw.memberEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
 
-            if (mappedLeadIds.length === 0) console.warn(`Initiative "${initRaw.name}" has no valid leads.`);
+                if (mappedLeadIds.length === 0) console.warn(`Initiative "${initRaw.name}" has no valid leads.`);
 
-            initiativeBatch.set(initiativeRef, {
-                name: initRaw.name,
-                category: initRaw.category,
-                description: `Work stream for ${initRaw.name}.`,
-                objectives: `Deliver on the objectives for ${initRaw.name}.`,
-                leadIds: mappedLeadIds,
-                teamMemberIds: mappedMemberIds,
-                status: 'Not Started',
-                priority: 'Medium',
-                startDate: new Date().toISOString(),
-                endDate: new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString(),
-                tags: [initRaw.category],
-                ragStatus: 'Green',
-                progress: 0,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            });
+                initiativeBatch.set(initiativeRef, {
+                    name: initRaw.name,
+                    category: initRaw.category,
+                    description: `Work stream for ${initRaw.name}.`,
+                    objectives: `Deliver on the objectives for ${initRaw.name}.`,
+                    leadIds: mappedLeadIds,
+                    teamMemberIds: mappedMemberIds,
+                    status: 'Not Started',
+                    priority: 'Medium',
+                    startDate: new Date().toISOString(),
+                    endDate: new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString(),
+                    tags: [initRaw.category],
+                    ragStatus: 'Green',
+                    progress: 0,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                });
+            }
+            await initiativeBatch.commit();
+            console.log("Initiatives seeded successfully.");
+        } catch (error) {
+            console.error("Seeding Initiatives failed:", error);
+            // This is a critical error.
+            throw new Error("Failed to seed initiatives. " + (error as Error).message);
         }
-        await initiativeBatch.commit();
         onProgress({ message: "Seeding Complete!", percentage: 100 });
 
     } catch (error) {
@@ -340,35 +374,31 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
     }
 }
 
-export async function clearData(db: Firestore) {
+export async function clearData(db: Firestore, onProgress: ProgressCallback) {
     console.log('\n--- Clearing Non-User Data ---');
     onProgress({ message: `Clearing Initiatives, Departments, and Designations...`, percentage: 0 });
     
     const collectionsToDelete = ['initiatives', 'departments', 'designations'];
+    let clearedCount = 0;
+
     for (const collectionName of collectionsToDelete) {
         console.log(`- Deleting collection: ${collectionName}...`);
         const q = query(collection(db, collectionName));
         const snapshot = await getDocs(q);
         if (snapshot.empty) {
             console.log(`- Collection ${collectionName} is already empty.`);
-            continue;
+        } else {
+            const batch = writeBatch(db);
+            snapshot.docs.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            console.log(`- Deleted ${snapshot.size} documents from ${collectionName}.`);
         }
-        const batch = writeBatch(db);
-        snapshot.docs.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
-        console.log(`- Deleted ${snapshot.size} documents from ${collectionName}.`);
+        clearedCount++;
+        onProgress({ message: `Cleared ${collectionName}...`, percentage: (clearedCount / collectionsToDelete.length) * 100 });
     }
 
     console.log('- Finished clearing data.');
-    onProgress({ message: `Data cleared.`, percentage: 100 });
-
 }
-function onProgress(arg0: { message: string; percentage: number; }) {
-    throw new Error("Function not implemented.");
-}
-
-
-
     
 
     

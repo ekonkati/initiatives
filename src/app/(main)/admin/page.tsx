@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { AppShell } from "@/components/app-shell";
@@ -175,8 +176,9 @@ export default function AdminPage() {
     const handleClearData = async () => {
         if (!firestore) return;
         setIsProcessing(true);
+        setSeedingProgress({ message: "Starting...", percentage: 0 });
         try {
-            await clearData(firestore);
+            await clearData(firestore, (progress) => setSeedingProgress(progress));
             toast({
                 title: "Success",
                 description: "Initiatives, departments, and designations cleared.",
@@ -191,6 +193,7 @@ export default function AdminPage() {
             });
         } finally {
             setIsProcessing(false);
+            setSeedingProgress({ message: "", percentage: 0 });
             setClearConfirmation("");
         }
     };
@@ -473,7 +476,7 @@ export default function AdminPage() {
                                     <div>
                                         <h3 className="font-semibold">Seed Database</h3>
                                         <p className="text-sm text-muted-foreground">Adds users and initiatives from the built-in dataset. Does not delete existing data.</p>
-                                        {isProcessing && (
+                                        {(isProcessing && seedingProgress.message.includes('Seed')) && (
                                             <div className="mt-2 w-full max-w-sm">
                                                 <Progress value={seedingProgress.percentage} className="h-2" />
                                                 <p className="text-xs text-muted-foreground mt-1">{seedingProgress.message} ({Math.round(seedingProgress.percentage)}%)</p>
@@ -482,13 +485,19 @@ export default function AdminPage() {
                                     </div>
                                     <Button onClick={handleSeedDatabase} disabled={isProcessing}>
                                         <Database className="mr-2 h-4 w-4" /> 
-                                        {isProcessing ? "Seeding..." : "Seed Data"}
+                                        {isProcessing && seedingProgress.message.includes('Seed') ? "Seeding..." : "Seed Data"}
                                     </Button>
                                 </div>
                                 <div className="flex items-center justify-between rounded-lg border border-destructive/50 p-4">
                                     <div>
                                         <h3 className="font-semibold text-destructive">Clear Non-User Data</h3>
                                         <p className="text-sm text-muted-foreground">Permanently delete all initiatives, departments, and designations. User data is not affected.</p>
+                                        {(isProcessing && seedingProgress.message.includes('Clear')) && (
+                                            <div className="mt-2 w-full max-w-sm">
+                                                <Progress value={seedingProgress.percentage} className="h-2" />
+                                                <p className="text-xs text-muted-foreground mt-1">{seedingProgress.message} ({Math.round(seedingProgress.percentage)}%)</p>
+                                            </div>
+                                        )}
                                     </div>
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
@@ -522,7 +531,7 @@ export default function AdminPage() {
                                                     onClick={handleClearData}
                                                     disabled={clearConfirmation !== 'CLEAR' || isProcessing}
                                                 >
-                                                    {isProcessing ? "Clearing..." : "Continue"}
+                                                    {isProcessing && seedingProgress.message.includes('Clear') ? "Clearing..." : "Continue"}
                                                 </AlertDialogAction>
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
@@ -739,3 +748,6 @@ function MasterDataFormDialog({ item, title, description, onSubmit, onClose }: M
         </DialogContent>
     );
 }
+
+
+    
