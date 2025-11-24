@@ -30,10 +30,12 @@ export const useUser = (id: string | undefined) => {
   const firestore = useFirestore();
   const { user, isUserLoading } = useAuthUser();
   const docRef = useMemoFirebase(() => {
-    if (isUserLoading || !id || !user) return null;
+    // Do not proceed if auth is loading or if the ID is not yet available.
+    if (isUserLoading || !id) return null;
     return doc(firestore, 'users', id);
-  }, [firestore, id, user, isUserLoading]);
+  }, [firestore, id, isUserLoading]);
   const result = useDoc<User>(docRef);
+  // The hook's loading state is a combination of auth loading and collection loading.
   return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 

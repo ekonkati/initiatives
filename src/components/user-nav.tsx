@@ -24,8 +24,14 @@ import { useUser as useAuthUser } from '@/firebase';
 import { useUser } from '@/lib/data';
 
 export function UserNav() {
-    const { user: authUser } = useAuthUser();
-    const { data: currentUser } = useUser(authUser?.uid);
+    const { user: authUser, isUserLoading: isAuthUserLoading } = useAuthUser();
+    const { data: currentUser, isLoading: isCurrentUserLoading } = useUser(authUser?.uid);
+
+    // Wait until both authentication and user profile data are loaded.
+    if (isAuthUserLoading || isCurrentUserLoading) {
+      // You can render a skeleton loader here if you want.
+      return null;
+    }
 
     if (!currentUser) return null;
 
