@@ -24,6 +24,7 @@ import { useUser as useAuthUser, useAuth } from '@/firebase';
 import { useUser } from '@/lib/data';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { Skeleton } from './ui/skeleton';
 
 export function UserNav() {
     const { user: authUser, isUserLoading: isAuthUserLoading } = useAuthUser();
@@ -41,42 +42,48 @@ export function UserNav() {
     };
 
 
-    // Wait until both authentication and user profile data are loaded.
-    if (isAuthUserLoading || isCurrentUserLoading) {
-      // You can render a skeleton loader here if you want.
-      return null;
+    // Wait until basic authentication is loaded.
+    if (isAuthUserLoading) {
+      return <Skeleton className="h-9 w-9 rounded-full" />;
     }
 
-    if (!currentUser || !auth) return null;
+    if (!authUser || !auth) return null;
+    
+    const displayName = currentUser?.name || authUser.email;
+    const displayEmail = currentUser?.email || authUser.email;
+    const displayInitial = displayName?.charAt(0).toUpperCase() || '?';
+
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            <AvatarImage src={currentUser.photoUrl} alt={`@${currentUser.name}`} />
-            <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
+            {currentUser && <AvatarImage src={currentUser.photoUrl} alt={`@${currentUser.name}`} />}
+            <AvatarFallback>{displayInitial}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{currentUser.name}</p>
+            <p className="text-sm font-medium leading-none">{displayName}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {currentUser.email}
+              {displayEmail}
             </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href={`/people/${currentUser.id}`}>
-              <UserIcon className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-              <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
-            </Link>
-          </DropdownMenuItem>
+          {currentUser && (
+            <DropdownMenuItem asChild>
+              <Link href={`/people/${currentUser.id}`}>
+                <UserIcon className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+                <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem>
             <CreditCard className="mr-2 h-4 w-4" />
             <span>Billing</span>
