@@ -13,11 +13,16 @@ import { useEffect, useState } from 'react';
 export const useUsers = () => {
   const firestore = useFirestore();
   const { user, isUserLoading } = useAuthUser();
+  
   const q = useMemoFirebase(() => {
+    // Only create the query if the auth state is resolved and there is a user.
     if (isUserLoading || !user) return null;
     return query(collection(firestore, 'users'));
   }, [firestore, user, isUserLoading]);
+
   const result = useCollection<User>(q);
+  
+  // The hook's loading state is a combination of auth loading and collection loading.
   return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 
@@ -35,11 +40,16 @@ export const useUser = (id: string | undefined) => {
 export const useInitiatives = () => {
   const firestore = useFirestore();
   const { user, isUserLoading } = useAuthUser();
+
   const q = useMemoFirebase(() => {
+      // Only create the query if the auth state is resolved and there is a user.
       if (isUserLoading || !user) return null;
       return query(collection(firestore, 'initiatives'));
   }, [firestore, user, isUserLoading]);
+
   const result = useCollection<Initiative>(q);
+
+  // The hook's loading state is a combination of auth loading and collection loading.
   return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 
