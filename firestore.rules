@@ -53,7 +53,9 @@ service cloud.firestore {
 
     // INITIATIVES & SUBCOLLECTIONS
     match /initiatives/{initiativeId} {
-      // Allow read/write to an initiative doc if the user is a member or admin.
+      // A user can read/write an initiative if they are a member or an admin.
+      // This rule applies to both GET and LIST queries.
+      // For LIST, the client query MUST be constrained to what this rule allows.
       allow read, write: if isInitiativeMember(initiativeId);
 
       // TASKS, ATTACHMENTS, and other subcollections
@@ -61,14 +63,6 @@ service cloud.firestore {
       match /{allChildren=**} {
         allow read, write: if isInitiativeMember(initiativeId);
       }
-    }
-    
-    // This rule is separate to handle the collection-level query for initiatives.
-    match /initiatives/{initiativeId} {
-        // Admins can list all initiatives.
-        // Other users can list initiatives where their UID is in the leadIds or teamMemberIds.
-        // The client query MUST match this condition.
-        allow list: if isAdmin() || (request.auth.uid in resource.data.leadIds || request.auth.uid in resource.data.teamMemberIds);
     }
   }
 }
