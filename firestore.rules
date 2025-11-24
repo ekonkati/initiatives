@@ -12,7 +12,9 @@ service cloud.firestore {
 
     function isAdmin() {
       // Check if a user document exists and if their role is 'Admin'.
-      return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+      // Note: This relies on the user's profile document being present.
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return isUserAuthenticated() && userDoc.data.role == 'Admin';
     }
 
     function isOwner(userId) {
@@ -20,21 +22,20 @@ service cloud.firestore {
     }
 
     function isInitiativeMember(initiativeId) {
-      let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId)).data;
-      return isUserAuthenticated() && (request.auth.uid in initiativeDoc.leadIds || request.auth.uid in initiativeDoc.teamMemberIds || isAdmin());
+      let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
+      // Check if the user is an admin OR if their UID is in the leadIds or teamMemberIds lists.
+      return isUserAuthenticated() && 
+             (isAdmin() || 
+              (initiativeDoc.data.leadIds != null && request.auth.uid in initiativeDoc.data.leadIds) ||
+              (initiativeDoc.data.teamMemberIds != null && request.auth.uid in initiativeDoc.data.teamMemberIds));
     }
 
     // --- Rules ---
 
-    // Default deny all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     // USERS
     match /users/{userId} {
-      // Admins can read any profile. Any authenticated user can read any profile (for avatars/names).
-      allow read: if isUserAuthenticated() || isAdmin();
+      // Any authenticated user can read any profile (for avatars/names).
+      allow read: if isUserAuthenticated();
       // Users can update their own profile, or an admin can.
       allow write: if isOwner(userId) || isAdmin();
     }
@@ -55,31 +56,17 @@ service cloud.firestore {
 
     // INITIATIVES & SUBCOLLECTIONS
     match /initiatives/{initiativeId} {
-      // Any authenticated user can list initiatives. Members/Admins can read a single one.
+      // Any authenticated user can list initiatives to see the main list.
       allow list: if isUserAuthenticated();
-      allow get: if isInitiativeMember(initiativeId) || isAdmin();
-      // Only members or admins can write.
+      // Only members or admins can read a single full initiative document.
+      allow get: if isInitiativeMember(initiativeId);
+      // Only members or admins can write to the initiative document.
       allow write: if isInitiativeMember(initiativeId);
 
-      // TASKS
-      match /tasks/{taskId} {
+      // TASKS, ATTACHMENTS, and other subcollections
+      // Inherit the parent initiative's membership check for all operations.
+      match /{allChildren=**} {
         allow read, write: if isInitiativeMember(initiativeId);
-      }
-      
-      // ATTACHMENTS
-      match /attachments/{attachmentId} {
-         allow read, write: if isInitiativeMember(initiativeId);
-      }
-      
-      // Other subcollections inherit the same simple rule.
-      match /initiativeRatings/{ratingId} {
-          allow read, write: if isInitiativeMember(initiativeId);
-      }
-      match /userRatings/{ratingId} {
-          allow read, write: if isInitiativeMember(initiativeId);
-      }
-      match /dailyCheckins/{checkinId} {
-          allow read, write: if isInitiativeMember(initiativeId);
       }
     }
   }
