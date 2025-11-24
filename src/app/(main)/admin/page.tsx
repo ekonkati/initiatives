@@ -1,3 +1,4 @@
+
 'use client';
 
 import { AppShell } from "@/components/app-shell";
@@ -21,7 +22,7 @@ import * as z from "zod";
 import { collection, doc, setDoc, updateDoc, deleteDoc, addDoc, writeBatch, getDocs, query } from "firebase/firestore";
 import { useFirestore, useAuth } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
-import { runSeed } from "@/lib/seeding";
+import { runSeed, clearData } from "@/lib/seeding";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -107,7 +108,7 @@ export default function AdminPage() {
             await batch.commit();
             toast({
                 title: "Users Removed",
-                description: `${selectedUsers.length} user(s) have been removed from the system. The user list will update shortly.`,
+                description: `${selectedUsers.length} user(s) have been removed. The list will update shortly.`,
             });
             setSelectedUsers([]);
         } catch (error) {
@@ -146,12 +147,20 @@ export default function AdminPage() {
     // Master Data Handlers (Generic)
     const handleMasterDataSubmit = (collectionName: string, setFormOpen: (open: boolean) => void, setEditing: (item: any) => void, editingItem: any) => async (values: MasterDataFormValues) => {
         if (!firestore) return;
+        const collectionRef = collection(firestore, collectionName);
         if (editingItem) {
-            const itemRef = doc(firestore, collectionName, editingItem.id);
-            await updateDoc(itemRef, values);
+            const itemRef = doc(collectionRef, editingItem.id);
+            await setDoc(itemRef, values);
         } else {
-            await addDoc(collection(firestore, collectionName), values);
+             // For master data, we can use the name to generate a predictable ID
+            const newId = values.name.toLowerCase().replace(/\s+/g, '-');
+            const itemRef = doc(collectionRef, newId);
+            await setDoc(itemRef, values);
         }
+        toast({
+            title: `${collectionName.charAt(0).toUpperCase() + collectionName.slice(1)} Saved`,
+            description: `The data for "${values.name}" has been saved.`
+        });
         setFormOpen(false);
         setEditing(null);
     };
@@ -165,16 +174,7 @@ export default function AdminPage() {
         if (!firestore) return;
         setIsProcessing(true);
         try {
-            const collectionsToDelete = ['initiatives', 'departments', 'designations'];
-            const batch = writeBatch(firestore);
-
-            for (const collectionName of collectionsToDelete) {
-                const q = query(collection(firestore, collectionName));
-                const snapshot = await getDocs(q);
-                snapshot.docs.forEach(doc => batch.delete(doc.ref));
-            }
-            
-            await batch.commit();
+            await clearData(firestore);
             toast({
                 title: "Success",
                 description: "Initiatives, departments, and designations cleared.",
@@ -477,7 +477,7 @@ export default function AdminPage() {
                                 </div>
                                 <div className="flex items-center justify-between rounded-lg border border-destructive/50 p-4">
                                     <div>
-                                        <h3 className="font-semibold text-destructive">Clear Data</h3>
+                                        <h3 className="font-semibold text-destructive">Clear Non-User Data</h3>
                                         <p className="text-sm text-muted-foreground">Permanently delete all initiatives, departments, and designations. User data is not affected.</p>
                                     </div>
                                     <AlertDialog>
