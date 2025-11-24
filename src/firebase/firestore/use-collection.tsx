@@ -63,15 +63,24 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    if (memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-      throw new Error('Query passed to useCollection was not memoized with useMemoFirebase');
-    }
-
-    if (!memoizedTargetRefOrQuery) {
-      setIsLoading(false);
+    if (memoizedTargetRefOrQuery === null) {
+      // If the query is explicitly null (e.g. auth is loading), set a non-loading empty state.
       setData(null);
+      setIsLoading(false);
       setError(null);
       return;
+    }
+    
+    if (memoizedTargetRefOrQuery === undefined) {
+      // If the query is undefined (truly not ready), remain in a loading state.
+      setData(null);
+      setIsLoading(true);
+      setError(null);
+      return;
+    }
+
+    if (memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
+      throw new Error('Query passed to useCollection was not memoized with useMemoFirebase');
     }
 
     setIsLoading(true);

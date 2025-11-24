@@ -49,17 +49,26 @@ export function useDoc<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    if (memoizedDocRef && !memoizedDocRef.__memo) {
-      throw new Error('Document reference passed to useDoc was not memoized with useMemoFirebase');
-    }
-    
-    if (!memoizedDocRef) {
-      setIsLoading(false);
+    if (memoizedDocRef === null) {
+      // If the ref is explicitly null (e.g. auth is loading), set a non-loading empty state.
       setData(null);
+      setIsLoading(false);
       setError(null);
       return;
     }
 
+    if (memoizedDocRef === undefined) {
+      // If the ref is undefined (truly not ready), remain in a loading state.
+      setData(null);
+      setIsLoading(true);
+      setError(null);
+      return;
+    }
+
+    if (memoizedDocRef && !memoizedDocRef.__memo) {
+      throw new Error('Document reference passed to useDoc was not memoized with useMemoFirebase');
+    }
+    
     setIsLoading(true);
 
     const unsubscribe = onSnapshot(
