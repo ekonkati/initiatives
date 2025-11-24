@@ -17,7 +17,7 @@ function RootRedirect() {
 
     if (user) {
       // If user is logged in, redirect to the main dashboard.
-      router.replace('/initiatives');
+      router.replace('/');
     } else {
       // If user is not logged in, redirect to the login page.
       router.replace('/login');
