@@ -4,95 +4,83 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Default deny all reads and writes
+    // --- Helper Functions ---
+
+    function isUserAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      // Check if a user document exists and if their role is 'Admin'.
+      return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+    }
+
+    function isOwner(userId) {
+      return isUserAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isInitiativeMember(initiativeId) {
+      let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId)).data;
+      return isUserAuthenticated() && (request.auth.uid in initiativeDoc.leadIds || request.auth.uid in initiativeDoc.teamMemberIds || isAdmin());
+    }
+
+    // --- Rules ---
+
+    // Default deny all
     match /{document=**} {
       allow read, write: if false;
     }
 
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
-    function isAdmin() {
-      return getUserRole() == 'Admin';
-    }
-
-    function isInitiativeMember(initiativeId) {
-      let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
-      // Ensure the document exists and has the required fields before accessing them
-      if (!exists(/databases/$(database)/documents/initiatives/$(initiativeId))) {
-        return false;
-      }
-      let leads = initiativeDoc.data.leadIds;
-      let members = initiativeDoc.data.teamMemberIds;
-      return request.auth.uid in leads || request.auth.uid in members || isAdmin();
-    }
-
-    // --- Top-Level Collections ---
-
-    // Allow any authenticated user to read the list of users and individual user profiles.
-    // Restrict updates to the user themselves or an admin.
+    // USERS
     match /users/{userId} {
-      allow read: if request.auth.uid != null;
-      allow create, update: if request.auth.uid == userId || isAdmin();
+      // Admins can read any profile. Any authenticated user can read any profile (for avatars/names).
+      allow read: if isUserAuthenticated() || isAdmin();
+      // Users can update their own profile, or an admin can.
+      allow write: if isOwner(userId) || isAdmin();
     }
 
-    // Allow any authenticated user to read master data like departments and designations.
-    // Restrict writes to admins.
-    match /departments/{departmentId} {
-      allow read: if request.auth.uid != null;
+    // DEPARTMENTS & DESIGNATIONS
+    match /departments/{docId} {
+      // Any authenticated user can read master data.
+      allow read: if isUserAuthenticated();
+      // Only admins can write master data.
       allow write: if isAdmin();
     }
-    match /designations/{designationId} {
-      allow read: if request.auth.uid != null;
+    match /designations/{docId} {
+        // Any authenticated user can read master data.
+      allow read: if isUserAuthenticated();
+       // Only admins can write master data.
       allow write: if isAdmin();
     }
 
-    // --- Initiative-Specific Rules ---
-
-    // Allow any authenticated user to list and read initiatives.
-    // Restrict write access to members of the initiative or admins.
+    // INITIATIVES & SUBCOLLECTIONS
     match /initiatives/{initiativeId} {
-      allow read: if request.auth.uid != null;
+      // Any authenticated user can list initiatives. Members/Admins can read a single one.
+      allow list: if isUserAuthenticated();
+      allow get: if isInitiativeMember(initiativeId) || isAdmin();
+      // Only members or admins can write.
       allow write: if isInitiativeMember(initiativeId);
 
-      // Tasks subcollection
+      // TASKS
       match /tasks/{taskId} {
-        allow read, write, create, delete: if isInitiativeMember(initiativeId);
+        allow read, write: if isInitiativeMember(initiativeId);
       }
       
-      // Attachments subcollection
+      // ATTACHMENTS
       match /attachments/{attachmentId} {
-        allow read, list, create, delete: if isInitiativeMember(initiativeId);
-        allow update: if isInitiativeMember(initiativeId) && request.auth.uid == resource.data.uploadedBy;
+         allow read, write: if isInitiativeMember(initiativeId);
       }
-    }
-    
-    // --- Collection Group Queries ---
-
-    // This rule allows a user to perform a collection group query for all tasks
-    // assigned to them across all initiatives.
-    match /{path=**}/tasks/{taskId} {
-      allow read: if request.auth.uid == resource.data.ownerId;
-    }
-  }
-}
-
-service firebase.storage {
-  match /b/{bucket}/o {
-
-    function isInitiativeMember(initiativeId) {
-      let initiative = get(/databases/(default)/documents/initiatives/$(initiativeId)).data;
-      let userRole = get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
-      return request.auth.uid in initiative.leadIds || request.auth.uid in initiative.teamMemberIds || userRole == 'Admin';
-    }
-
-    // Allow reads if the user is an initiative member.
-    // Allow writes (uploads/deletes) only by initiative members.
-    // The path is structured as /initiatives/{initiativeId}/{fileName}
-    match /initiatives/{initiativeId}/{allPaths=**} {
-      allow read: if isInitiativeMember(initiativeId);
-      allow write: if isInitiativeMember(initiativeId);
+      
+      // Other subcollections inherit the same simple rule.
+      match /initiativeRatings/{ratingId} {
+          allow read, write: if isInitiativeMember(initiativeId);
+      }
+      match /userRatings/{ratingId} {
+          allow read, write: if isInitiativeMember(initiativeId);
+      }
+      match /dailyCheckins/{checkinId} {
+          allow read, write: if isInitiativeMember(initiativeId);
+      }
     }
   }
 }
