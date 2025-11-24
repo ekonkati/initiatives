@@ -41,13 +41,13 @@ service cloud.firestore {
       allow read, write: if request.auth.uid != null;
     }
 
+    // --- Initiative-Specific Rules ---
+
     // Allow any authenticated user to list initiatives for display purposes.
-    // Write access and detailed reads are handled by the rule below.
+    // Detailed read/write access is handled by the rule below.
     match /initiatives {
       allow list: if request.auth.uid != null;
     }
-
-    // --- Initiative-Specific Rules ---
 
     // Rules for individual initiatives and their subcollections.
     // Detailed read/write access is restricted to members of the initiative or admins.
