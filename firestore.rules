@@ -12,6 +12,8 @@ service cloud.firestore {
 
     function isAdmin() {
       // Check if the user document exists and the role is 'Admin'.
+      // This requires a 'get' operation, which is billed as one read.
+      // Use this function where necessary for admin-only actions.
       return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
     }
 
@@ -20,6 +22,8 @@ service cloud.firestore {
     }
 
     function isInitiativeMember(initiativeId) {
+      // This function verifies if the requesting user is a lead or a team member of a specific initiative.
+      // It's used to secure access to individual initiative documents and their subcollections.
       let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
       let isLead = request.auth.uid in initiativeDoc.data.leadIds;
       let isTeamMember = request.auth.uid in initiativeDoc.data.teamMemberIds;
@@ -31,17 +35,19 @@ service cloud.firestore {
 
     // USERS
     match /users/{userId} {
-      // Any authenticated user can read any profile (for avatars/names).
+      // Any authenticated user can read any other user's profile.
+      // This is generally safe for non-sensitive public profile info like name and avatar.
       allow read: if isUserAuthenticated();
-      // Users can update their own profile, or an admin can.
+      
+      // A user can update their own profile, or an admin can update any profile.
       allow write: if isOwner(userId) || isAdmin();
     }
     
     // INITIATIVES
     match /initiatives/{initiativeId} {
-      // An Admin can read/write any initiative.
-      // A user can read/write an initiative if they are a member.
-      // This rule covers get, list, create, update, delete.
+      // An admin can read/write any initiative.
+      // A non-admin user can read/write an initiative only if they are a member.
+      // This rule covers get, list (for constrained queries), create, update, and delete.
       allow read, write: if isAdmin() || isInitiativeMember(initiativeId);
     }
     
@@ -60,8 +66,9 @@ service cloud.firestore {
     }
 
     // INITIATIVE SUBCOLLECTIONS
-    // This rule allows members of an initiative to access all related sub-collection documents.
-    // An Admin also has access.
+    // This single rule secures all documents within any subcollection of an initiative.
+    // Access is granted if the user is an Admin or a member of the parent initiative.
+    // This avoids duplicating rules for tasks, attachments, ratings, etc.
     match /initiatives/{initiativeId}/{allChildren=**} {
       allow read, write: if isAdmin() || isInitiativeMember(initiativeId);
     }

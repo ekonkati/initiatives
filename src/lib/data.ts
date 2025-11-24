@@ -37,24 +37,20 @@ export const useUser = (id: string | undefined) => {
 export const useInitiatives = () => {
     const firestore = useFirestore();
     const { user: authUser, isUserLoading } = useAuthUser();
-
-    // We fetch the user's profile document to check their role.
-    const { data: currentUser, isLoading: isUserDocLoading } = useUser(authUser?.uid);
+    const { data: currentUser, isLoading: isCurrentUserLoading } = useUser(authUser?.uid);
 
     const q = useMemoFirebase(() => {
-        // Return null if we are still waiting for auth or the user's profile
-        if (isUserLoading || isUserDocLoading || !firestore || !authUser) {
+        if (isUserLoading || isCurrentUserLoading || !firestore || !authUser) {
             return null;
         }
         
-        // If the user document exists and they are an Admin, fetch all initiatives.
+        // If the user is an Admin, they can see all initiatives.
         if (currentUser?.role === 'Admin') {
             return query(collection(firestore, 'initiatives'));
         }
 
-        // For all other users, fetch initiatives where they are a lead OR a team member.
-        // This query is secure because the firestore.rules will ensure a user can only
-        // list documents they are a member of.
+        // For non-admins, create a query that finds initiatives where they are either a lead or a team member.
+        // This query is secure because the firestore.rules ensure a user can only read documents they are a member of.
         return query(
             collection(firestore, 'initiatives'),
             or(
@@ -62,9 +58,8 @@ export const useInitiatives = () => {
                 where('teamMemberIds', 'array-contains', authUser.uid)
             )
         );
-    }, [firestore, authUser, isUserLoading, currentUser, isUserDocLoading]);
-    
-    // The useCollection hook will handle the null query state and return loading.
+    }, [firestore, authUser, isUserLoading, currentUser, isCurrentUserLoading]);
+
     return useCollection<Initiative>(q);
 };
 
