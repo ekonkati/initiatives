@@ -36,12 +36,12 @@ export const useUser = (id: string | undefined) => {
 
 export const useInitiatives = () => {
     const firestore = useFirestore();
-    const { user: authUser, isUserLoading } = useAuthUser();
+    const { user: authUser, isUserLoading: isAuthUserLoading } = useAuthUser();
     const { data: currentUser, isLoading: isCurrentUserLoading } = useUser(authUser?.uid);
 
     const q = useMemoFirebase(() => {
         // Wait until we have all the necessary data
-        if (isUserLoading || isCurrentUserLoading || !firestore || !authUser || !currentUser) {
+        if (isAuthUserLoading || isCurrentUserLoading || !firestore || !authUser || !currentUser) {
             return null;
         }
 
@@ -58,7 +58,7 @@ export const useInitiatives = () => {
                 where('teamMemberIds', 'array-contains', authUser.uid)
             )
         );
-    }, [firestore, authUser, isUserLoading, currentUser, isCurrentUserLoading]);
+    }, [firestore, authUser, isAuthUserLoading, currentUser, isCurrentUserLoading]);
 
     return useCollection<Initiative>(q);
 };

@@ -24,7 +24,7 @@ service cloud.firestore {
       let isLead = request.auth.uid in initiativeDoc.data.leadIds;
       let isTeamMember = request.auth.uid in initiativeDoc.data.teamMemberIds;
       
-      return isUserAuthenticated() && (isAdmin() || isLead || isTeamMember);
+      return isUserAuthenticated() && (isLead || isTeamMember);
     }
     
     // --- Rules ---
@@ -39,10 +39,10 @@ service cloud.firestore {
     
     // INITIATIVES
     match /initiatives/{initiativeId} {
-      // A user can read an initiative doc if they are a member.
-      // This rule covers 'get' and allows 'list' queries as long as the 
-      // client query ONLY asks for documents where the user is a member.
-      allow read, write: if isInitiativeMember(initiativeId);
+      // An Admin can read/write any initiative.
+      // A user can read/write an initiative if they are a member.
+      // This rule covers get, list, create, update, delete.
+      allow read, write: if isAdmin() || isInitiativeMember(initiativeId);
     }
     
     // DEPARTMENTS & DESIGNATIONS (Master Data)
@@ -61,8 +61,9 @@ service cloud.firestore {
 
     // INITIATIVE SUBCOLLECTIONS
     // This rule allows members of an initiative to access all related sub-collection documents.
+    // An Admin also has access because isInitiativeMember calls isAdmin().
     match /initiatives/{initiativeId}/{allChildren=**} {
-      allow read, write: if isInitiativeMember(initiativeId);
+      allow read, write: if isAdmin() || isInitiativeMember(initiativeId);
     }
   }
 }
