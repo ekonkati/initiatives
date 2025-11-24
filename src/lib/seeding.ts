@@ -174,29 +174,29 @@ const designationsRaw = [
     { id: 'member', name: 'Member' },
 ];
 
+// Utility function to introduce a delay
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: string): Promise<AuthUser | null> {
     try {
-        // Attempt to create the user. This is the fastest way to check existence.
         const userCredential = await createUserWithEmailAndPassword(auth, email, password || 'password123');
         console.log(`- Auth user CREATED for ${email}`);
         return userCredential.user;
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
-            // If the user already exists, sign in to retrieve their AuthUser object.
             try {
                 const userCredential = await signInWithEmailAndPassword(auth, email, password || 'password123');
-                 console.log(`- Auth user for ${email} already exists. Logged in to retrieve.`);
+                console.log(`- Auth user for ${email} already exists. Logged in to retrieve.`);
                 return userCredential.user;
             } catch (signInError: any) {
-                // This can happen if the password was changed from a previous seeding run.
-                console.warn(`  - Could not sign in to existing user ${email} to get UID. This may impact initiative assignment. Error: ${signInError.message}`);
-                // Return a placeholder-like object so the calling function knows the UID exists but we couldn't get the full object.
-                // We will rely on finding the user profile by email later.
-                return { uid: `existing-user-${email}` } as AuthUser;
+                console.warn(`- Could not sign in to existing user ${email}. It might have a different password. Skipping auth creation, but will attempt to find Firestore profile.`);
+                return null; // Return null but don't halt everything
             }
+        } else if (error.code === 'auth/too-many-requests') {
+            console.warn(`- Rate limit hit when creating user ${email}. Will retry in a moment...`);
+            await sleep(2000); // Wait for 2 seconds
+            return createOrRetrieveAuthUser(auth, email, password); // Retry the creation
         }
-        // For other errors during creation.
         console.error(`- Error processing auth for user ${email}:`, error.message);
         return null;
     }
@@ -222,29 +222,33 @@ export async function runSeed(db: Firestore, auth: Auth) {
 
 
     // --- STEP 2: Process All Users (Auth & Firestore) ---
-    console.log('\nSTEP 2: Processing all users...');
-    const userProcessingPromises: Promise<void>[] = [];
+    console.log('\nSTEP 2: Processing all users (sequentially to avoid rate limits)...');
     const userIdMap = new Map<string, string>();
-
     const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
 
     for (const userRaw of uniqueUsers) {
-        const p = (async () => {
-            // Ensure auth user exists
-            const authUser = await createOrRetrieveAuthUser(auth, userRaw.email);
-            if (!authUser || !authUser.uid) {
-                console.warn(`- SKIPPING user profile for ${userRaw.email} due to auth issue.`);
-                return;
+        const authUser = await createOrRetrieveAuthUser(auth, userRaw.email);
+        await sleep(100); // Add a small delay between each auth operation
+
+        let userId: string | undefined;
+
+        if (authUser?.uid) {
+            userId = authUser.uid;
+        } else {
+            // If authUser is null (e.g. sign-in failed), try to find user by email in Firestore
+            const userQuery = query(collection(db, 'users'), where('email', '==', userRaw.email));
+            const userSnapshot = await getDocs(userQuery);
+            if (!userSnapshot.empty) {
+                userId = userSnapshot.docs[0].id;
+                console.log(`- Found existing Firestore user for ${userRaw.email} with ID: ${userId}`);
             }
-            
-            // At this point, we have a valid UID.
-            const userId = authUser.uid;
+        }
+
+        if (userId) {
             userIdMap.set(userRaw.email.toLowerCase(), userId);
-            
             const userRef = doc(db, 'users', userId);
             const userDoc = await getDoc(userRef);
 
-            // Only create the user profile if it doesn't already exist.
             if (!userDoc.exists()) {
                 const userProfile: User = {
                     id: userId,
@@ -261,14 +265,11 @@ export async function runSeed(db: Firestore, auth: Auth) {
             } else {
                  console.log(`- Firestore profile for ${userRaw.email} already exists. Skipping.`);
             }
-        })();
-        userProcessingPromises.push(p);
+        } else {
+            console.warn(`- SKIPPING Firestore profile for ${userRaw.email} as UID could not be determined.`);
+        }
     }
-    
-    // Wait for all user processing to complete before moving to initiatives.
-    await Promise.all(userProcessingPromises);
     console.log(`- Finished processing ${uniqueUsers.length} users.`);
-
 
     // --- STEP 3: Seed Initiatives ---
     console.log('\nSTEP 3: Seeding initiatives...');
