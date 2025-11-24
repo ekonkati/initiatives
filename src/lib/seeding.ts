@@ -185,12 +185,39 @@ async function createOrRetrieveAuthUser(auth: Auth, email: string): Promise<Auth
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
             console.log(`- Auth user ${email} already exists. Skipping creation.`);
-            return { email } as AuthUser; // Return a placeholder with email
+            // Return a placeholder that the main logic can use to find the UID
+            return { email } as AuthUser;
         }
+        if (error.code === 'auth/too-many-requests') {
+             console.error(`- Rate limit exceeded when trying to create ${email}. Please wait and try again.`);
+             // Propagate the error to be handled by the batching logic
+             throw error;
+        }
+        // For other errors during creation.
         console.error(`- Error processing auth for user ${email}:`, error.message);
         return null;
     }
 }
+
+
+const processInBatches = async <T, R>(
+    items: T[],
+    batchSize: number,
+    processItem: (item: T) => Promise<R>
+): Promise<R[]> => {
+    const results: R[] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch.map(processItem));
+        results.push(...batchResults);
+        if (i + batchSize < items.length) {
+            // Wait for a short period before the next batch to avoid hitting rate limits
+            await new Promise(res => setTimeout(res, 1000));
+        }
+    }
+    return results;
+};
+
 
 // --- MAIN SEEDING SCRIPT ---
 
@@ -203,11 +230,17 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
 
     try {
         currentStep++;
-        onProgress({ message: `Step 1/${totalSteps}: Processing Auth Users...`, percentage: 0 });
-        const authPromises = uniqueUsers.map(user => createOrRetrieveAuthUser(auth, user.email));
-        const authResults = await Promise.all(authPromises);
-        onProgress({ message: `Step 1/${totalSteps}: Auth Users Processed.`, percentage: currentStep / totalSteps * 100 });
+        const authProgressStep = 1 / uniqueUsers.length;
+        onProgress({ message: `Step 1/${totalSteps}: Processing ${uniqueUsers.length} Auth Users...`, percentage: 0 });
 
+        const authResults = await processInBatches(uniqueUsers, 10, async (user, index) => {
+            const result = await createOrRetrieveAuthUser(auth, user.email);
+            const progress = (currentStep -1 + (index + 1) * authProgressStep) / totalSteps * 100;
+            onProgress({ message: `Step 1/${totalSteps}: Processing Auth Users... (${index + 1}/${uniqueUsers.length})`, percentage: progress });
+            return result;
+        });
+
+        onProgress({ message: `Step 1/${totalSteps}: Auth Users Processed.`, percentage: currentStep / totalSteps * 100 });
 
         currentStep++;
         onProgress({ message: `Step 2/${totalSteps}: Seeding Master Data...`, percentage: (currentStep - 1) / totalSteps * 100 });
@@ -228,6 +261,10 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
         onProgress({ message: `Step 3/${totalSteps}: Seeding User Profiles...`, percentage: (currentStep - 1) / totalSteps * 100 });
         const userProfileBatch = writeBatch(db);
 
+        // First, sign in as admin to get permissions if needed. Note: This assumes admin exists.
+        await signInWithEmailAndPassword(auth, 'alia.hassan@example.com', 'password123');
+
+        // Fetch all existing user profiles from Firestore to prevent duplicates
         const existingUsersSnapshot = await getDocs(collection(db, "users"));
         existingUsersSnapshot.forEach(doc => {
             const user = doc.data() as User;
@@ -237,6 +274,7 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
         for (const authUser of authResults) {
             if (authUser?.email) {
                 const userRaw = uniqueUsers.find(u => u.email.toLowerCase() === authUser.email!.toLowerCase());
+                // Only create a profile if it's not already in our map from Firestore
                 if (userRaw && !userIdMap.has(userRaw.email.toLowerCase())) {
                     // This user doesn't exist in Firestore yet, create them.
                     const userId = authUser.uid || doc(collection(db, 'users')).id; // Use real UID if available
@@ -253,6 +291,9 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
                     };
                     userProfileBatch.set(userRef, userProfile);
                     userIdMap.set(userRaw.email.toLowerCase(), userId);
+                } else if(userRaw && authUser.uid) {
+                    // The user exists in auth and firestore, ensure map has the correct UID
+                    userIdMap.set(userRaw.email.toLowerCase(), authUser.uid);
                 }
             }
         }
@@ -301,6 +342,8 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
 
 export async function clearData(db: Firestore) {
     console.log('\n--- Clearing Non-User Data ---');
+    onProgress({ message: `Clearing Initiatives, Departments, and Designations...`, percentage: 0 });
+    
     const collectionsToDelete = ['initiatives', 'departments', 'designations'];
     for (const collectionName of collectionsToDelete) {
         console.log(`- Deleting collection: ${collectionName}...`);
@@ -316,19 +359,16 @@ export async function clearData(db: Firestore) {
         console.log(`- Deleted ${snapshot.size} documents from ${collectionName}.`);
     }
 
-    console.log(`- Deleting all users except the admin...`);
-    const usersQuery = query(collection(db, "users"), where("role", "!=", "Admin"));
-    const usersSnapshot = await getDocs(usersQuery);
-    if (!usersSnapshot.empty) {
-        const batch = writeBatch(db);
-        usersSnapshot.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
-        console.log(`- Deleted ${usersSnapshot.size} non-admin users.`);
-    } else {
-        console.log('- No non-admin users to delete.');
-    }
-    
     console.log('- Finished clearing data.');
+    onProgress({ message: `Data cleared.`, percentage: 100 });
+
 }
+function onProgress(arg0: { message: string; percentage: number; }) {
+    throw new Error("Function not implemented.");
+}
+
+
+
+    
 
     
