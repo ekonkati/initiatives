@@ -217,40 +217,43 @@ export async function runSeed(db: Firestore, auth: Auth) {
     console.log('Previous data deleted successfully.');
 
     // Create a set of unique users from the raw data to avoid duplicates
-    const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email, user])).values());
+    const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
 
     console.log('\nSTEP 2: Creating authentication users...');
     const userIdMap: Record<string, string> = {}; // Map email to real UID
     const userProfiles: User[] = [];
 
     for (const user of uniqueUsers) {
-        let authUser: AuthUser;
+        let authUser: AuthUser | null = null;
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, user.email, 'password123');
             authUser = userCredential.user;
         } catch (error: any) {
             if (error.code === 'auth/email-already-in-use') {
-                const userCredential = await signInWithEmailAndPassword(auth, user.email, 'password123');
-                authUser = userCredential.user;
+                 console.warn(`[Seeding Warning] Auth user with email ${user.email} already exists. The script will not attempt to sign in or retrieve the existing user. A Firestore profile will still be created, but you may need to manually resolve the auth user state.`);
+                 // We will create a placeholder UID to avoid crashing, but this user won't be properly linked to auth
+                 authUser = { uid: `existing-user-${user.email}` } as AuthUser;
             } else {
                 console.error(`  - Error processing user ${user.email}:`, error.message);
                 throw error;
             }
         }
         
-        userIdMap[user.email] = authUser.uid;
-        console.log(`- Mapped ${user.email} to UID: ${authUser.uid}`);
+        if (authUser) {
+            userIdMap[user.email.toLowerCase()] = authUser.uid;
+            console.log(`- Mapped ${user.email} to UID: ${authUser.uid}`);
 
-        userProfiles.push({
-            id: authUser.uid,
-            name: user.name,
-            email: user.email,
-            role: user.role as User['role'],
-            department: user.department || 'Unassigned',
-            designation: user.designation || (user.role === 'Initiative Lead' ? 'Lead' : 'Member'),
-            active: true,
-            photoUrl: `https://picsum.photos/seed/${authUser.uid}/40/40`,
-        });
+            userProfiles.push({
+                id: authUser.uid,
+                name: user.name,
+                email: user.email,
+                role: user.role as User['role'],
+                department: user.department || 'Unassigned',
+                designation: user.designation || (user.role === 'Initiative Lead' ? 'Lead' : 'Member'),
+                active: true,
+                photoUrl: `https://picsum.photos/seed/${authUser.uid}/40/40`,
+            });
+        }
     }
     console.log('Authentication users created and mapped.');
 
