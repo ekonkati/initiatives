@@ -178,26 +178,14 @@ const designationsRaw = [
 // --- UTILITY FUNCTIONS ---
 type ProgressCallback = (progress: { message: string; percentage: number }) => void;
 
-// Utility function to introduce a delay
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: string): Promise<AuthUser | null> {
+async function createOrRetrieveAuthUser(auth: Auth, email: string): Promise<AuthUser | null> {
     try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password || 'password123');
+        const userCredential = await createUserWithEmailAndPassword(auth, email, 'password123');
         return userCredential.user;
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
-            try {
-                // If user exists, we don't need to sign in. We'll fetch their UID from Firestore later.
-                console.log(`- Auth user ${email} already exists.`);
-                return { uid: `existing-user-${email}` } as AuthUser; // Return a placeholder
-            } catch (signInError: any) {
-                console.warn(`- Could not process existing user ${email}. It might have a different password.`);
-                return null;
-            }
-        } else if (error.code === 'auth/too-many-requests') {
-             console.warn(`- Rate limited while processing ${email}.`);
-             return null;
+            console.log(`- Auth user ${email} already exists. Skipping creation.`);
+            return { email } as AuthUser; // Return a placeholder with email
         }
         console.error(`- Error processing auth for user ${email}:`, error.message);
         return null;
@@ -214,28 +202,13 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
     const userIdMap = new Map<string, string>();
 
     try {
-        // --- STEP 1: Process All Auth Users in Batches ---
         currentStep++;
-        const totalUsers = uniqueUsers.length;
-        onProgress({ message: `Step 1/${totalSteps}: Processing ${totalUsers} Auth Users...`, percentage: 0 });
-        
-        const authUserPromises = uniqueUsers.map((userRaw, index) => {
-            return createOrRetrieveAuthUser(auth, userRaw.email).then(authUser => {
-                const progress = ((currentStep - 1) + ((index + 1) / totalUsers)) / totalSteps * 100;
-                onProgress({ message: `Creating auth user for ${userRaw.email}...`, percentage: progress });
-                if (authUser && !authUser.uid.startsWith('existing-user-')) {
-                     return { email: userRaw.email, uid: authUser.uid };
-                }
-                return { email: userRaw.email, uid: null }; // Keep track of which ones need UIDs later
-            });
-        });
-
-        const authUserResults = await Promise.all(authUserPromises);
-        console.log("Finished processing auth users.");
+        onProgress({ message: `Step 1/${totalSteps}: Processing Auth Users...`, percentage: 0 });
+        const authPromises = uniqueUsers.map(user => createOrRetrieveAuthUser(auth, user.email));
+        const authResults = await Promise.all(authPromises);
         onProgress({ message: `Step 1/${totalSteps}: Auth Users Processed.`, percentage: currentStep / totalSteps * 100 });
 
 
-        // --- STEP 2: Seed Master Data (Departments & Designations) ---
         currentStep++;
         onProgress({ message: `Step 2/${totalSteps}: Seeding Master Data...`, percentage: (currentStep - 1) / totalSteps * 100 });
         const masterBatch = writeBatch(db);
@@ -248,55 +221,45 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
             masterBatch.set(desigRef, { name: desig.name });
         });
         await masterBatch.commit();
-        console.log("Finished seeding master data.");
         onProgress({ message: `Step 2/${totalSteps}: Master Data Seeded.`, percentage: currentStep / totalSteps * 100 });
-
-        // --- STEP 3: Create Firestore User Profiles ---
+        
+        
         currentStep++;
         onProgress({ message: `Step 3/${totalSteps}: Seeding User Profiles...`, percentage: (currentStep - 1) / totalSteps * 100 });
-        
-        // First, populate userIdMap with any existing users from Firestore
-        const existingUsersSnapshot = await getDocs(collection(db, 'users'));
+        const userProfileBatch = writeBatch(db);
+
+        const existingUsersSnapshot = await getDocs(collection(db, "users"));
         existingUsersSnapshot.forEach(doc => {
             const user = doc.data() as User;
             userIdMap.set(user.email.toLowerCase(), user.id);
         });
 
-        const userProfileBatch = writeBatch(db);
-        for (const userRaw of uniqueUsers) {
-            const lowercasedEmail = userRaw.email.toLowerCase();
-            let userId = userIdMap.get(lowercasedEmail);
-
-            // If user was newly created in auth, their UID is in the results
-            if (!userId) {
-                const authRecord = authUserResults.find(r => r?.email.toLowerCase() === lowercasedEmail);
-                if (authRecord?.uid) {
-                    userId = authRecord.uid;
+        for (const authUser of authResults) {
+            if (authUser?.email) {
+                const userRaw = uniqueUsers.find(u => u.email.toLowerCase() === authUser.email!.toLowerCase());
+                if (userRaw && !userIdMap.has(userRaw.email.toLowerCase())) {
+                    // This user doesn't exist in Firestore yet, create them.
+                    const userId = authUser.uid || doc(collection(db, 'users')).id; // Use real UID if available
+                    const userRef = doc(db, 'users', userId);
+                    const userProfile: User = {
+                        id: userId,
+                        name: userRaw.name,
+                        email: userRaw.email,
+                        role: userRaw.role as User['role'],
+                        department: userRaw.department || 'Unassigned',
+                        designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
+                        active: true,
+                        photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
+                    };
+                    userProfileBatch.set(userRef, userProfile);
+                    userIdMap.set(userRaw.email.toLowerCase(), userId);
                 }
-            }
-
-            if (userId && !userIdMap.has(lowercasedEmail)) {
-                 const userRef = doc(db, 'users', userId);
-                 const userProfile: User = {
-                    id: userId,
-                    name: userRaw.name,
-                    email: userRaw.email,
-                    role: userRaw.role as User['role'],
-                    department: userRaw.department || 'Unassigned',
-                    designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
-                    active: true,
-                    photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
-                };
-                userProfileBatch.set(userRef, userProfile);
-                userIdMap.set(lowercasedEmail, userId); // Add to map for initiative seeding
             }
         }
         await userProfileBatch.commit();
-        console.log("Finished seeding user profiles.");
         onProgress({ message: `Step 3/${totalSteps}: User Profiles Seeded.`, percentage: currentStep / totalSteps * 100 });
 
 
-        // --- STEP 4: Seed Initiatives ---
         currentStep++;
         onProgress({ message: `Step 4/${totalSteps}: Seeding Initiatives...`, percentage: (currentStep - 1) / totalSteps * 100 });
         const initiativeBatch = writeBatch(db);
@@ -305,6 +268,8 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
             const initiativeRef = doc(db, 'initiatives', initRaw.id);
             const mappedLeadIds = initRaw.leadEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
             const mappedMemberIds = initRaw.memberEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
+
+            if (mappedLeadIds.length === 0) console.warn(`Initiative "${initRaw.name}" has no valid leads.`);
 
             initiativeBatch.set(initiativeRef, {
                 name: initRaw.name,
@@ -325,7 +290,6 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
             });
         }
         await initiativeBatch.commit();
-        console.log("Finished seeding initiatives.");
         onProgress({ message: "Seeding Complete!", percentage: 100 });
 
     } catch (error) {
@@ -337,7 +301,6 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
 
 export async function clearData(db: Firestore) {
     console.log('\n--- Clearing Non-User Data ---');
-    // We leave the 'users' collection intact now.
     const collectionsToDelete = ['initiatives', 'departments', 'designations'];
     for (const collectionName of collectionsToDelete) {
         console.log(`- Deleting collection: ${collectionName}...`);
@@ -352,5 +315,20 @@ export async function clearData(db: Firestore) {
         await batch.commit();
         console.log(`- Deleted ${snapshot.size} documents from ${collectionName}.`);
     }
+
+    console.log(`- Deleting all users except the admin...`);
+    const usersQuery = query(collection(db, "users"), where("role", "!=", "Admin"));
+    const usersSnapshot = await getDocs(usersQuery);
+    if (!usersSnapshot.empty) {
+        const batch = writeBatch(db);
+        usersSnapshot.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+        console.log(`- Deleted ${usersSnapshot.size} non-admin users.`);
+    } else {
+        console.log('- No non-admin users to delete.');
+    }
+    
     console.log('- Finished clearing data.');
 }
+
+    
