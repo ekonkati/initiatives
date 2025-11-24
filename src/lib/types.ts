@@ -11,8 +11,20 @@ export interface User {
   active: boolean;
 }
 
-export type InitiativeStatus = 'Not Started' | 'In Progress' | 'On Hold' | 'Completed' | 'Cancelled';
-export type InitiativePriority = 'High' | 'Medium' | 'Low';
+export enum InitiativeStatus {
+    NotStarted = "Not Started",
+    InProgress = "In Progress",
+    OnHold = "On Hold",
+    Completed = "Completed",
+    Cancelled = "Cancelled"
+};
+
+export enum InitiativePriority {
+    High = "High",
+    Medium = "Medium",
+    Low = "Low"
+}
+
 export type RAGStatus = 'Red' | 'Amber' | 'Green';
 
 export interface Initiative {

@@ -13,11 +13,15 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { RAGStatus, User } from "@/lib/types";
+import { RAGStatus, User, Initiative } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { InitiativeFormDialog } from "@/components/initiative-form-dialog";
+import { useFirestore, useUser as useAuthUser } from "@/firebase";
+import { useToast } from "@/hooks/use-toast";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
 const RAG_MAP: Record<RAGStatus, string> = {
   Red: 'bg-red-500',
@@ -28,6 +32,12 @@ const RAG_MAP: Record<RAGStatus, string> = {
 export default function InitiativesPage() {
     const { data: initiativesData } = useInitiatives();
     const { data: usersData } = useUsers();
+    const { user: authUser } = useAuthUser();
+    const { toast } = useToast();
+    const firestore = useFirestore();
+
+    const [isCreateFormOpen, setCreateFormOpen] = useState(false);
+
     const initiatives = initiativesData || [];
     const users = usersData || [];
 
@@ -42,13 +52,33 @@ export default function InitiativesPage() {
         return [...new Set(initiatives.map(i => i.category))];
     }, [initiatives]);
 
+    const onInitiativeCreate = async (values: any) => {
+        if (!firestore || !authUser) return;
+
+        try {
+            await addDoc(collection(firestore, 'initiatives'), {
+                ...values,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                ragStatus: 'Green',
+                progress: 0,
+                tags: [],
+            });
+            toast({ title: "Initiative created successfully!" });
+            setCreateFormOpen(false);
+        } catch (error) {
+            console.error("Error creating initiative:", error);
+            toast({ title: "Error", description: "Failed to create initiative.", variant: "destructive" });
+        }
+    };
+
     return (
         <AppShell>
             <Header />
             <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
                 <div className="flex items-center justify-between space-y-2">
                     <h2 className="text-3xl font-bold tracking-tight">Initiatives</h2>
-                     <Button>
+                     <Button onClick={() => setCreateFormOpen(true)}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Create Initiative
                     </Button>
@@ -110,6 +140,7 @@ export default function InitiativesPage() {
                                         <TableCell>
                                             <div className="flex -space-x-2 overflow-hidden">
                                                 {initiative.leadIds.map(leadId => (
+                                                    userMap[leadId] &&
                                                     <Avatar key={leadId} className="h-6 w-6 border-2 border-card">
                                                         <AvatarImage src={userMap[leadId]?.photoUrl} />
                                                         <AvatarFallback>{userMap[leadId]?.name.charAt(0)}</AvatarFallback>
@@ -143,6 +174,17 @@ export default function InitiativesPage() {
                         </Table>
                     </CardContent>
                 </Card>
+
+                {usersData && (
+                    <InitiativeFormDialog
+                        key={isCreateFormOpen ? 'create-new' : 'closed'}
+                        open={isCreateFormOpen}
+                        onOpenChange={setCreateFormOpen}
+                        onSubmit={onInitiativeCreate}
+                        users={users}
+                        allInitiatives={initiatives}
+                    />
+                )}
             </main>
         </AppShell>
     )

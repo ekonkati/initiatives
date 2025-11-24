@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { AppShell } from "@/components/app-shell";
@@ -36,6 +35,7 @@ import { CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { InitiativeFormDialog } from "@/components/initiative-form-dialog";
 
 const RAG_MAP: Record<RAGStatus, string> = {
   Red: 'border-red-500 text-red-500',
@@ -48,6 +48,10 @@ export default function InitiativeDetailPage() {
     const params = useParams();
     const id = params.id as string;
     const { user: authUser } = useAuthUser();
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    
+    const [isEditFormOpen, setEditFormOpen] = useState(false);
 
     const { data: initiative, isLoading: isLoadingInitiative, error } = useInitiative(id);
     const { data: allUsersData, isLoading: isLoadingUsers } = useUsers();
@@ -67,6 +71,23 @@ export default function InitiativeDetailPage() {
     const attachments = attachmentsData || [];
 
     const isLoading = isLoadingInitiative || isLoadingUsers || isLoadingTasks || isLoadingAttachments;
+    
+    const onInitiativeUpdate = async (values: any) => {
+        if (!firestore || !initiative) return;
+        try {
+            const docRef = doc(firestore, 'initiatives', initiative.id);
+            await updateDoc(docRef, {
+                ...values,
+                updatedAt: serverTimestamp(),
+            });
+            toast({ title: "Initiative updated successfully!" });
+            setEditFormOpen(false);
+        } catch (error) {
+            console.error("Error updating initiative:", error);
+            toast({ title: "Error", description: "Failed to update initiative.", variant: "destructive" });
+        }
+    };
+
 
     if (isLoading) {
         return (
@@ -108,9 +129,11 @@ export default function InitiativeDetailPage() {
                       <Badge variant="secondary">{initiative.category}</Badge>
                     </h2>
                   </div>
-                  <Button>
-                    <Pencil className="mr-2 h-4 w-4" /> Edit Initiative
-                  </Button>
+                  {isMember && (
+                    <Button onClick={() => setEditFormOpen(true)}>
+                        <Pencil className="mr-2 h-4 w-4" /> Edit Initiative
+                    </Button>
+                  )}
                 </div>
                 
                 <Tabs defaultValue="overview">
@@ -237,6 +260,17 @@ export default function InitiativeDetailPage() {
                         </div>
                     </TabsContent>
                 </Tabs>
+                {users && (
+                    <InitiativeFormDialog
+                        key={initiative.id}
+                        open={isEditFormOpen}
+                        onOpenChange={setEditFormOpen}
+                        onSubmit={onInitiativeUpdate}
+                        initiative={initiative}
+                        users={users}
+                        allInitiatives={[]}
+                    />
+                )}
             </main>
         </AppShell>
     );
@@ -327,6 +361,7 @@ function TaskManager({ initiativeId, tasks, users, userMap, isMember }: TaskMana
             const dataToSave = {
                 ...values,
                 dueDate: values.dueDate.toISOString(),
+                updatedAt: serverTimestamp(),
             };
 
             if (editingTask) {
@@ -339,8 +374,7 @@ function TaskManager({ initiativeId, tasks, users, userMap, isMember }: TaskMana
                     ...dataToSave,
                     initiativeId,
                     progress: 0,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
+                    createdAt: serverTimestamp(),
                 });
                 toast({ title: "Task Created" });
             }
@@ -804,5 +838,3 @@ function AttachmentFormDialog({ attachment, open, onOpenChange, onSubmit }: Atta
         </Dialog>
     );
 }
-
-    

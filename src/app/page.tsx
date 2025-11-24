@@ -31,8 +31,13 @@ import { useInitiatives, useTasksForUser, useUser, useUsers } from '@/lib/data';
 import { type Task, type User, type Initiative, RAGStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useUser as useAuthUser } from '@/firebase';
+import { InitiativeFormDialog } from '@/components/initiative-form-dialog';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+
 
 const RAG_MAP: Record<RAGStatus, string> = {
   Red: 'bg-red-500',
@@ -41,11 +46,15 @@ const RAG_MAP: Record<RAGStatus, string> = {
 };
 
 export default function DashboardPage() {
-  const { user: authUser } = useAuthUser();
+  const { user: authUser, isUserLoading } = useAuthUser();
   const { data: currentUser } = useUser(authUser?.uid); 
   const { data: allInitiativesData } = useInitiatives();
-  const { data: myTasksData } = useTasksForUser(currentUser?.id);
-  const { data: allUsersData } = useUsers();
+  const { data: myTasksData, isLoading: isLoadingTasks } = useTasksForUser(currentUser?.id);
+  const { data: allUsersData, isLoading: isLoadingUsers } = useUsers();
+  
+  const [isCreateFormOpen, setCreateFormOpen] = useState(false);
+  const firestore = useFirestore();
+  const { toast } = useToast();
 
   const myInitiatives = useMemo(() => {
     if (!allInitiativesData || !currentUser) return [];
@@ -63,6 +72,38 @@ export default function DashboardPage() {
         return acc;
     }, {} as Record<string, User>);
     }, [allUsersData]);
+
+  const onInitiativeCreate = async (values: any) => {
+    if (!firestore || !authUser) return;
+
+    try {
+        const docRef = await addDoc(collection(firestore, 'initiatives'), {
+            ...values,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            ragStatus: 'Green',
+            progress: 0,
+            tags: [],
+        });
+        toast({ title: "Initiative created successfully!" });
+        setCreateFormOpen(false);
+    } catch (error) {
+        console.error("Error creating initiative:", error);
+        toast({ title: "Error", description: "Failed to create initiative.", variant: "destructive" });
+    }
+  };
+
+
+  if (isUserLoading || isLoadingTasks || isLoadingUsers) {
+    return (
+        <AppShell>
+            <Header />
+            <main className="flex-1 p-4 pt-6 md:p-8">
+                <div>Loading...</div>
+            </main>
+        </AppShell>
+    );
+  }
 
   if (!currentUser) return (
     <AppShell>
@@ -91,7 +132,7 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between space-y-2">
           <h2 className="text-3xl font-bold tracking-tight">Welcome back, {currentUser.name.split(' ')[0]}!</h2>
           <div className="flex items-center space-x-2">
-            <Button>
+            <Button onClick={() => setCreateFormOpen(true)}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Create Initiative
             </Button>
@@ -188,6 +229,16 @@ export default function DashboardPage() {
             </Button>
           </CardFooter>
         </Card>
+        {allUsersData && (
+        <InitiativeFormDialog
+            key={isCreateFormOpen ? 'create-new' : 'closed'}
+            open={isCreateFormOpen}
+            onOpenChange={setCreateFormOpen}
+            onSubmit={onInitiativeCreate}
+            users={allUsersData}
+            allInitiatives={allInitiativesData || []}
+        />
+        )}
       </main>
     </AppShell>
   );
@@ -243,7 +294,13 @@ function TaskTable({ tasks, initiatives }: { tasks: Task[]; initiatives: Initiat
             </TableCell>
             <TableCell className="font-medium">{task.title}</TableCell>
             <TableCell>
-              <Badge variant="secondary">{initiativesMap[task.initiativeId]?.name}</Badge>
+              {initiativesMap[task.initiativeId] ? (
+                 <Link href={`/initiatives/${task.initiativeId}`} className="hover:underline">
+                    <Badge variant="secondary">{initiativesMap[task.initiativeId]?.name}</Badge>
+                 </Link>
+              ) : (
+                <Badge variant="secondary">Unknown</Badge>
+              )}
             </TableCell>
             <TableCell>{format(new Date(task.dueDate), "MM/dd/yyyy")}</TableCell>
             <TableCell className="text-right">
