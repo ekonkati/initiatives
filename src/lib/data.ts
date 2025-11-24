@@ -20,23 +20,22 @@ export const useUsers = () => {
     return query(collection(firestore, 'users'));
   }, [firestore, user, isUserLoading]);
 
-  const result = useCollection<User>(q);
-  
-  // The hook's loading state is a combination of auth loading and collection loading.
-  return { ...result, isLoading: isUserLoading || result.isLoading };
+  // The hook's loading state is now managed solely by useCollection.
+  // We no longer combine it with isUserLoading here.
+  return useCollection<User>(q);
 };
 
 export const useUser = (id: string | undefined) => {
   const firestore = useFirestore();
-  const { user, isUserLoading } = useAuthUser();
+  const { isUserLoading } = useAuthUser();
   const docRef = useMemoFirebase(() => {
     // Do not proceed if auth is loading or if the ID is not yet available.
     if (!firestore || isUserLoading || !id) return null;
     return doc(firestore, 'users', id);
   }, [firestore, id, isUserLoading]);
-  const result = useDoc<User>(docRef);
-  // The hook's loading state is a combination of auth loading and collection loading.
-  return { ...result, isLoading: isUserLoading || result.isLoading };
+  
+  // The hook's loading state is now managed solely by useDoc.
+  return useDoc<User>(docRef);
 };
 
 export const useInitiatives = () => {
