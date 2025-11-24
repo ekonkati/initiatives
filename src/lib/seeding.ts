@@ -188,8 +188,8 @@ async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: st
                 return userCredential.user;
             } catch (signInError: any) {
                  if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/wrong-password') {
-                    console.warn(`  - Could not sign in to retrieve UID for ${email}. Will proceed with a placeholder UID for Firestore, but auth will not be linked for this user on this run.`);
-                    return { email, uid: `existing-user-${email}` } as AuthUser; 
+                    console.warn(`  - Could not sign in to retrieve UID for ${email}. This user will be skipped for this seeding run. Please ensure passwords are correct or remove the user from Firebase Auth to have them re-created.`);
+                    return null;
                 }
                 console.error(`  - Error signing in to existing user ${email}:`, signInError.message);
                 return null;
@@ -246,6 +246,7 @@ export async function runSeed(db: Firestore, auth: Auth) {
     const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
     
     // Add Users
+    console.log('\nSTEP 3: Processing other users...');
     for (const userRaw of uniqueUsers) {
         if(userRaw.role === 'Admin') continue; // Skip admin
 
@@ -272,11 +273,12 @@ export async function runSeed(db: Firestore, auth: Auth) {
             }
         }
     }
-    console.log(`- Queued ${uniqueUsers.length -1} users for batch write.`);
+    console.log(`- Queued ${Object.keys(userIdMap).length -1} other users for batch write.`);
     
     // Add Initiatives and Subcollections
+    console.log('\nSTEP 4: Processing initiatives...');
     initiativesRaw.forEach(initRaw => {
-        const initiativeRef = doc(db, 'initiatives', initRaw.id);
+        const initiativeRef = doc(collection(db, 'initiatives'), initRaw.id);
         const mappedLeadIds = initRaw.leadEmails.map(email => {
             const uid = userIdMap[email.toLowerCase()];
             if (!uid) console.warn(`[Seeding Warning] Lead email not found in user map: ${email}`);
@@ -303,14 +305,15 @@ export async function runSeed(db: Firestore, auth: Auth) {
             tags: [initRaw.category],
             ragStatus: 'Green',
             progress: 0,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
         };
         batch.set(initiativeRef, mappedInitiative);
     });
     console.log(`- Queued ${initiativesRaw.length} initiatives for batch write.`);
 
     // Add Departments
+    console.log('\nSTEP 5: Processing master data...');
     departmentsRaw.forEach(dept => {
         const deptRef = doc(db, 'departments', dept.id);
         batch.set(deptRef, { name: dept.name });
@@ -325,6 +328,7 @@ export async function runSeed(db: Firestore, auth: Auth) {
     console.log(`- Queued ${designationsRaw.length} designations for batch write.`);
 
     // Commit the batch
+    console.log('\nSTEP 6: Committing all data to Firestore...');
     try {
         await batch.commit();
         console.log('✅ Batch committed successfully.');
@@ -332,6 +336,4 @@ export async function runSeed(db: Firestore, auth: Auth) {
         console.error('❌ Error committing batch:', error);
         throw error;
     }
-
-    console.log('\n--- Seeding Complete! ---');
 }
