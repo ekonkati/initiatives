@@ -37,15 +37,17 @@ export const useInitiatives = () => {
     const firestore = useFirestore();
     const { user: authUser, isUserLoading } = useAuthUser();
 
+    // This query is now much simpler and will trigger correctly once auth is loaded.
     const q = useMemoFirebase(() => {
-        // Wait until we have an authenticated user.
+        // Wait only for authUser to be available.
         if (isUserLoading || !firestore || !authUser) {
             return null;
         }
 
-        // This query fetches initiatives where the user is either a lead or a team member.
-        // It relies on the security rules to enforce that admins might get more results
-        // if the rules were structured that way. For now, it correctly fetches based on membership.
+        // Always query for initiatives the user is a member of.
+        // Admins might need a different view, but for the core functionality
+        // this ensures any member sees their own initiatives.
+        // Security rules will ultimately enforce what can be read.
         return query(
             collection(firestore, 'initiatives'),
             or(
@@ -139,3 +141,4 @@ export const useDesignations = () => {
     }, [firestore, user]);
     return useCollection<Designation>(q);
 };
+
