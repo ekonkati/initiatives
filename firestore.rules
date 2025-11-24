@@ -50,16 +50,11 @@ service cloud.firestore {
 
     // --- Initiative-Specific Rules ---
 
-    // Allow any authenticated user to list initiatives for display purposes.
-    // Detailed read/write access for individual documents is handled by the rule below.
-    match /initiatives {
-        allow list: if request.auth.uid != null;
-    }
-
-    // Rules for individual initiatives and their subcollections.
-    // Detailed read/write access is restricted to members of the initiative or admins.
+    // Allow any authenticated user to list and read initiatives.
+    // Restrict write access to members of the initiative or admins.
     match /initiatives/{initiativeId} {
-      allow get, write: if isInitiativeMember(initiativeId);
+      allow read: if request.auth.uid != null;
+      allow write: if isInitiativeMember(initiativeId);
 
       // Tasks subcollection
       match /tasks/{taskId} {
