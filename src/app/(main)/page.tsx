@@ -92,7 +92,7 @@ export default function DashboardPage() {
   };
 
 
-  if (isUserLoading || isLoadingTasks || isLoadingUsers || isLoadingInitiatives) {
+  if (isUserLoading || isLoadingTasks || isLoadingUsers || isLoadingInitiatives || !currentUser) {
     return (
         <>
             <Header />
@@ -102,14 +102,6 @@ export default function DashboardPage() {
         </>
     );
   }
-
-  if (!currentUser) return (
-      <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
-        <div className="flex items-center justify-center h-full">
-            <p>Please <Link href="/login" className="underline">log in</Link> to see your dashboard.</p>
-        </div>
-      </main>
-  );
 
   const stats = {
     totalInitiatives: myInitiatives.length,
