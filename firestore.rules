@@ -20,11 +20,9 @@ service cloud.firestore {
     }
 
     function isInitiativeMember(initiativeId) {
-      // Correctly and safely checks if a user is a lead, team member, or an admin for a given initiative.
-      // This is the robust way to check for membership in lists that may or may not exist.
       let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
-      let isLead = request.auth.uid in (initiativeDoc.data.leadIds);
-      let isTeamMember = request.auth.uid in (initiativeDoc.data.teamMemberIds);
+      let isLead = request.auth.uid in initiativeDoc.data.leadIds;
+      let isTeamMember = request.auth.uid in initiativeDoc.data.teamMemberIds;
       
       return isUserAuthenticated() && (isAdmin() || isLead || isTeamMember);
     }
@@ -55,10 +53,11 @@ service cloud.firestore {
 
     // INITIATIVES & SUBCOLLECTIONS
     match /initiatives/{initiativeId} {
-      // Any authenticated user can list initiatives to see the main list.
-      allow list: if isUserAuthenticated();
       // Only members or admins can read a single full initiative document.
       allow get: if isInitiativeMember(initiativeId);
+      // Members or admins can perform queries, but the client code must
+      // enforce the actual filtering by user ID.
+      allow list: if isUserAuthenticated();
       // Only members or admins can write to the initiative document.
       allow write: if isInitiativeMember(initiativeId);
 
