@@ -144,34 +144,34 @@ const initiativesRaw = [
 ];
 
 const departmentsRaw = [
-    { name: 'Executive' },
-    { name: 'Technology' },
-    { name: 'Marketing' },
-    { name: 'Finance' },
-    { name: 'Legal' },
-    { name: 'HR' },
-    { name: 'Transformation' },
-    { name: 'Growth' },
-    { name: 'Governance' },
-    { name: 'Operations' },
-    { name: 'Digital' },
-    { name: 'Sustainability' },
-    { name: 'Sales' },
-    { name: 'Recycling' },
-    { name: 'Projects' },
-    { name: 'SCM' },
-    { name: 'Innovation' },
-    { name: 'ESG' },
-    { name: 'M&A' },
-    { name: 'Logistics' },
-    { name: 'Compliance' },
-    { name: 'Consultancy' },
+    { id: 'exec', name: 'Executive' },
+    { id: 'tech', name: 'Technology' },
+    { id: 'mktg', name: 'Marketing' },
+    { id: 'fin', name: 'Finance' },
+    { id: 'legal', name: 'Legal' },
+    { id: 'hr', name: 'HR' },
+    { id: 'trans', name: 'Transformation' },
+    { id: 'growth', name: 'Growth' },
+    { id: 'gov', name: 'Governance' },
+    { id: 'ops', name: 'Operations' },
+    { id: 'digital', name: 'Digital' },
+    { id: 'sustain', name: 'Sustainability' },
+    { id: 'sales', name: 'Sales' },
+    { id: 'recycle', name: 'Recycling' },
+    { id: 'projects', name: 'Projects' },
+    { id: 'scm', name: 'SCM' },
+    { id: 'innov', name: 'Innovation' },
+    { id: 'esg', name: 'ESG' },
+    { id: 'ma', name: 'M&A' },
+    { id: 'logistics', name: 'Logistics' },
+    { id: 'compliance', name: 'Compliance' },
+    { id: 'consult', name: 'Consultancy' },
 ];
 
 const designationsRaw = [
-    { name: 'CEO' },
-    { name: 'Lead' },
-    { name: 'Member' },
+    { id: 'ceo', name: 'CEO' },
+    { id: 'lead', name: 'Lead' },
+    { id: 'member', name: 'Member' },
 ];
 
 
@@ -272,6 +272,7 @@ export async function runSeed(db: Firestore, auth: Auth) {
             }
         }
     }
+    console.log(`- Queued ${uniqueUsers.length -1} users for batch write.`);
     
     // Add Initiatives and Subcollections
     initiativesRaw.forEach(initRaw => {
@@ -307,21 +308,21 @@ export async function runSeed(db: Firestore, auth: Auth) {
         };
         batch.set(initiativeRef, mappedInitiative);
     });
-    console.log(`- Added ${initiativesRaw.length} initiatives to the batch.`);
+    console.log(`- Queued ${initiativesRaw.length} initiatives for batch write.`);
 
     // Add Departments
     departmentsRaw.forEach(dept => {
-        const deptRef = doc(collection(db, 'departments'));
-        batch.set(deptRef, dept);
+        const deptRef = doc(db, 'departments', dept.id);
+        batch.set(deptRef, { name: dept.name });
     });
-    console.log(`- Added ${departmentsRaw.length} departments to the batch.`);
+    console.log(`- Queued ${departmentsRaw.length} departments for batch write.`);
 
     // Add Designations
     designationsRaw.forEach(desig => {
-        const desigRef = doc(collection(db, 'designations'));
-        batch.set(desigRef, desig);
+        const desigRef = doc(db, 'designations', desig.id);
+        batch.set(desigRef, { name: desig.name });
     });
-    console.log(`- Added ${designationsRaw.length} designations to the batch.`);
+    console.log(`- Queued ${designationsRaw.length} designations for batch write.`);
 
     // Commit the batch
     try {
