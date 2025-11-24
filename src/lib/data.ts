@@ -20,8 +20,8 @@ export const useUsers = () => {
 
 export const useUser = (id: string | undefined) => {
   const firestore = useFirestore();
-  const { isUserLoading } = useAuthUser();
-  const docRef = useMemoFirebase(() => (isUserLoading || !id ? null : doc(firestore, 'users', id)), [firestore, id, isUserLoading]);
+  const { user, isUserLoading } = useAuthUser();
+  const docRef = useMemoFirebase(() => (isUserLoading || !id || !user ? null : doc(firestore, 'users', id)), [firestore, id, user, isUserLoading]);
   const result = useDoc<User>(docRef);
   return { ...result, isLoading: isUserLoading || result.isLoading };
 };
