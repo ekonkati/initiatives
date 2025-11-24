@@ -53,6 +53,8 @@ export const useInitiatives = () => {
         }
 
         // For all other users, fetch initiatives where they are a lead OR a team member.
+        // This query is secure because the firestore.rules will ensure a user can only
+        // list documents they are a member of.
         return query(
             collection(firestore, 'initiatives'),
             or(
