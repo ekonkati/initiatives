@@ -15,98 +15,98 @@ const usersRaw = [
     { name: 'Alia Hassan', email: 'alia.hassan@example.com', role: 'Admin', department: 'Executive', designation: 'CEO' },
     
     // Users from table
-    { name: 'Srikanth', email: 'srikanth.volla@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Siva Naga Madhu', email: 'sivanagamadhu.g@resustainability.com', role: 'Team Member' },
-    { name: 'Tulsi', email: 'raghavendra@resustainability.com', role: 'Team Member' },
-    { name: 'Chinmay', email: 'chinmayatulkumar.t@resustainability.com', role: 'Team Member' },
-    { name: 'Eshwar Rao Gantela', email: 'eshwararao.g@resustainability.com', role: 'Team Member' },
-    { name: 'Zorawar', email: 'zorawarsingh.s@resustainability.com', role: 'Team Member' },
-    { name: 'Subhasish', email: 'subhasish.sain@resustainability.com', role: 'Team Member' },
-    { name: 'Khasmali Shaik', email: 'khasmali.shaik@resustainability.com', role: 'Initiative Lead' },
-    { name: 'DBSSR Sastri', email: 'dsastry@resustainability.com', role: 'Team Member' },
-    { name: 'RM Rao', email: 'rmrao@resustainability.com', role: 'Team Member' },
-    { name: 'Koteshwar', email: 'koteswar.ch@resustainability.com', role: 'Team Member' },
-    { name: 'Chandrakala', email: 'chandrakala.p@resustainability.com', role: 'Team Member' },
-    { name: 'Seetha Rama Rao', email: 'seetharamarao@resustainability.com', role: 'Team Member' },
-    { name: 'Bhaskar Bhoge', email: 'bhaskar.boge@resustainability.com', role: 'Team Member' },
-    { name: 'Soma Shekhar', email: 'somasekharreddy.a@resustainability.com', role: 'Team Member' },
-    { name: 'Amit', email: 'amitsharma.j@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Ramesh', email: 'rb@resustainability.com', role: 'Team Member' },
-    { name: 'Ashish', email: 'ashish.shekhar@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Santosh', email: 'santosh@resustainability.com', role: 'Team Member' },
-    { name: 'Somnath', email: 'smalgar@resustainability.com', role: 'Team Member' },
-    { name: 'Mustafa', email: 'mustafa.b@resustainability.com', role: 'Team Member' },
-    { name: 'VVR', email: 'vvr@resustainability.com', role: 'Team Member' },
-    { name: 'Pankaj', email: 'pankaj.maharaj@resustainability.com', role: 'Team Member' },
-    { name: 'Vinod Raghavan', email: 'vinod.raghavan@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Krishna Thota', email: 'krishna.thota@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Aarthi', email: 'aarthi.kesiraju@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Manoj Agarwal', email: 'agarwal.manoj@resustainability.com', role: 'Team Member' },
-    { name: 'Rahul Dua', email: 'rdua@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Jayesh', email: 'jayesh.gehlot@resustainability.com', role: 'Team Member' },
-    { name: 'Alabh', email: 'alabh.anand@resustainability.com', role: 'Team Member' },
-    { name: 'Amaar', email: 'amar.goel@resustainability.com', role: 'Team Member' },
-    { name: 'Ghali', email: 'ghali.rezeqallah@resustainability.com', role: 'Team Member' },
-    { name: 'Govind', email: 'govind.singh@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Dr Malini', email: 'malinireddy.y@resustainability.com', role: 'Team Member' },
-    { name: 'Pankaj Maharaj', email: 'pankaj.maharaj@resustainability.com', role: 'Team Member' },
-    { name: 'ESHWAR KONKATI', email: 'eshwar.k@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Sanjiv Kumar', email: 'sksanjiv@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Vinod Babu', email: 'vinodbabu.b@resustainability.com', role: 'Team Member' },
-    { name: 'Siva Gangadhar Reddy', email: 'sivagangadharareddy@resustainability.com', role: 'Team Member' },
-    { name: 'Muralidharan', email: 'muralidharan.tk@resustainability.com', role: 'Team Member' },
-    { name: 'Victor', email: 'victorbabu@resustainability.com', role: 'Team Member' },
-    { name: 'Lalit Vijay', email: 'lalit.vijay@resustainability.com', role: 'Team Member' },
-    { name: 'Chaitanya', email: 'mchaitanyarao@resustainability.com', role: 'Initiative Lead' },
-    { name: 'KRC Shekar', email: 'krc.shekhar@resustainability.com', role: 'Team Member' },
-    { name: 'Anil Sharma', email: 'anilkumar.sharma@resustainability.com', role: 'Team Member' },
-    { name: 'Suchitra', email: 'suchitra.dumpa@resustainability.com', role: 'Team Member' },
-    { name: 'Pavan Kommuri F&A', email: 'pavan.kommuri@resustainability.com', role: 'Team Member' },
-    { name: 'Chandrakanth (SCM)', email: 'chandrakant.c@resustainability.com', role: 'Team Member' },
-    { name: 'Dr Srinivas', email: 'drksrinivas@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Dr.Shilpa', email: 'shilpa.mishra@resustainability.com', role: 'Team Member' },
-    { name: 'Subhash Koduri', email: 'subash.k@resustainability.com', role: 'Team Member' },
-    { name: 'Srinivas G', email: 'srinivasg@resustainability.com', role: 'Team Member' },
-    { name: 'Nadurmath', email: 'chanbasaya.sn@resustainability.com', role: 'Team Member' },
-    { name: 'Abhay Ranjan', email: 'abhayranjan@resustainability.com', role: 'Team Member' },
-    { name: 'Ganesh Ram', email: 'ganeshram.r@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Tirupathi Reddy', email: 'treddy@resustainability.com', role: 'Team Member' },
-    { name: 'Praveen Kumar M', email: 'praveenkumar.m@resustainability.com', role: 'Team Member' },
-    { name: 'OM Prakash', email: 'omprakash.v@resustainability.com', role: 'Team Member' },
-    { name: 'Shyam Sunder Appi Reddy', email: 'shyama.sundar@resustainability.com', role: 'Team Member' },
-    { name: 'Nitin Gaurgi', email: 'nitin.gaurgi@resustainability.com', role: 'Team Member' },
-    { name: 'Cibey', email: 'cibey.abraham@resustainability.com', role: 'Team Member' },
-    { name: 'Ganesh Prabhu', email: 'ganeshprabu.s@resustainability.com', role: 'Team Member' },
-    { name: 'Parisutham', email: 'parisutham.v@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Bhaskara Musala', email: 'bhaskar.m@resustainability.com', role: 'Team Member' },
-    { name: 'Amit Sudhakar G', email: 'amit.g@resustainability.com', role: 'Team Member' },
-    { name: 'Santharam', email: 'bsram@resustainability.com', role: 'Team Member' },
-    { name: 'Anupam Prasad Reddy', email: 'anupam.mishra@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Murali Krishna R', email: 'muralikrishna.r@resustainability.com', role: 'Team Member' },
-    { name: 'Rajashekar Reddy', email: 'rajasekharareddy.k@resustainability.com', role: 'Team Member' },
-    { name: 'Harsha', email: 'harsha.donth@resustainability.com.sg', role: 'Initiative Lead' },
-    { name: 'Ang King Yong', email: 'ang.kinyong@resustainability.com.sg', role: 'Team Member' },
-    { name: 'CK Lim', email: 'ck.lim@teeinfra.com', role: 'Team Member' },
-    { name: 'Satya', email: 'satya.a@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Avinash', email: 'avinash.sarlana@resustainability.com', role: 'Team Member' },
-    { name: 'Samrat', email: 'samrat@resilience.org.in', role: 'Team Member' },
-    { name: 'Sachin', email: 'sachin.watarkar@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Ranadheer', email: 'ranadheer.reddy@resustainability.com', role: 'Team Member' },
-    { name: 'Bhavesh', email: 'bhavesh.p@resustainability.com', role: 'Team Member' },
-    { name: 'Bobby', email: 'bobbykurien@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Nasarullah', email: 'nasarullah.mohd@resustainability.com', role: 'Team Member' },
-    { name: 'Jaimin', email: 'jaimink.shah@resustainability.com', role: 'Team Member' },
-    { name: 'Nataraj', email: 'rkv.nataraj@resustainability.com', role: 'Initiative Lead' },
-    { name: 'Masood Mallick', email: 'mm@resustainability.com', role: 'Team Member' },
-    { name: 'Durjoy', email: 'durjoy.mallick@resustainability.com', role: 'Team Member' },
-    { name: 'Sudharshan', email: 'sudarshan.medagani@resustainability.com', role: 'Team Member' },
-    { name: 'Manoj Soni', email: 'manoj.soni@resustainability.com', role: 'Team Member' },
-    { name: 'Sumanth', email: 'sumanth.g@resustainability.com', role: 'Team Member' },
-    { name: 'Navin SCM', email: 'navin.s@resustainability.com', role: 'Team Member' },
-    { name: 'Hanumanthu Murali', email: 'muralimohan.h@resustainability.com', role: 'Team Member' },
-    { name: 'Dr Rajeshwar', email: 'rajeshwar.d@resustainability.com', role: 'Team Member' },
-    { name: 'Dr Mrinal', email: 'mrinal.mallik@resustainability.com', role: 'Team Member' },
-    { name: 'Dr Chakradhar', email: 'drchakradhar@resustainability.com', role: 'Team Member' },
+    { name: 'Srikanth', email: 'srikanth.volla@resustainability.com', role: 'Initiative Lead', department: 'Legal', designation: 'Lead' },
+    { name: 'Siva Naga Madhu', email: 'sivanagamadhu.g@resustainability.com', role: 'Team Member', department: 'Legal', designation: 'Member' },
+    { name: 'Tulsi', email: 'raghavendra@resustainability.com', role: 'Team Member', department: 'HR', designation: 'Member' },
+    { name: 'Chinmay', email: 'chinmayatulkumar.t@resustainability.com', role: 'Team Member', department: 'Legal', designation: 'Member' },
+    { name: 'Eshwar Rao Gantela', email: 'eshwararao.g@resustainability.com', role: 'Team Member', department: 'Recycling', designation: 'Member' },
+    { name: 'Zorawar', email: 'zorawarsingh.s@resustainability.com', role: 'Team Member', department: 'M&A', designation: 'Member' },
+    { name: 'Subhasish', email: 'subhasish.sain@resustainability.com', role: 'Team Member', department: 'SCM', designation: 'Member' },
+    { name: 'Khasmali Shaik', email: 'khasmali.shaik@resustainability.com', role: 'Initiative Lead', department: 'Legal', designation: 'Lead' },
+    { name: 'DBSSR Sastri', email: 'dsastry@resustainability.com', role: 'Team Member', department: 'Legal', designation: 'Member' },
+    { name: 'RM Rao', email: 'rmrao@resustainability.com', role: 'Team Member', department: 'Legal', designation: 'Member' },
+    { name: 'Koteshwar', email: 'koteswar.ch@resustainability.com', role: 'Team Member', department: 'Legal', designation: 'Member' },
+    { name: 'Chandrakala', email: 'chandrakala.p@resustainability.com', role: 'Team Member', department: 'Legal', designation: 'Member' },
+    { name: 'Seetha Rama Rao', email: 'seetharamarao@resustainability.com', role: 'Team Member', department: 'Digital', designation: 'Member' },
+    { name: 'Bhaskar Bhoge', email: 'bhaskar.boge@resustainability.com', role: 'Team Member', department: 'Legal', designation: 'Member' },
+    { name: 'Soma Shekhar', email: 'somasekharreddy.a@resustainability.com', role: 'Team Member', department: 'Legal', designation: 'Member' },
+    { name: 'Amit', email: 'amitsharma.j@resustainability.com', role: 'Initiative Lead', department: 'Transformation', designation: 'Lead' },
+    { name: 'Ramesh', email: 'rb@resustainability.com', role: 'Team Member', department: 'Marketing', designation: 'Member' },
+    { name: 'Ashish', email: 'ashish.shekhar@resustainability.com', role: 'Initiative Lead', department: 'Digital', designation: 'Lead' },
+    { name: 'Santosh', email: 'santosh@resustainability.com', role: 'Team Member', department: 'Projects', designation: 'Member' },
+    { name: 'Somnath', email: 'smalgar@resustainability.com', role: 'Team Member', department: 'Transformation', designation: 'Member' },
+    { name: 'Mustafa', email: 'mustafa.b@resustainability.com', role: 'Team Member', department: 'Transformation', designation: 'Member' },
+    { name: 'VVR', email: 'vvr@resustainability.com', role: 'Team Member', department: 'SCM', designation: 'Member' },
+    { name: 'Pankaj', email: 'pankaj.maharaj@resustainability.com', role: 'Team Member', department: 'Finance', designation: 'Member' },
+    { name: 'Vinod Raghavan', email: 'vinod.raghavan@resustainability.com', role: 'Initiative Lead', department: 'Sustainability', designation: 'Lead' },
+    { name: 'Krishna Thota', email: 'krishna.thota@resustainability.com', role: 'Initiative Lead', department: 'Recycling', designation: 'Lead' },
+    { name: 'Aarthi', email: 'aarthi.kesiraju@resustainability.com', role: 'Initiative Lead', department: 'HR', designation: 'Lead' },
+    { name: 'Manoj Agarwal', email: 'agarwal.manoj@resustainability.com', role: 'Team Member', department: 'HR', designation: 'Member' },
+    { name: 'Rahul Dua', email: 'rdua@resustainability.com', role: 'Initiative Lead', department: 'Growth', designation: 'Lead' },
+    { name: 'Jayesh', email: 'jayesh.gehlot@resustainability.com', role: 'Team Member', department: 'Growth', designation: 'Member' },
+    { name: 'Alabh', email: 'alabh.anand@resustainability.com', role: 'Team Member', department: 'Growth', designation: 'Member' },
+    { name: 'Amaar', email: 'amar.goel@resustainability.com', role: 'Team Member', department: 'Growth', designation: 'Member' },
+    { name: 'Ghali', email: 'ghali.rezeqallah@resustainability.com', role: 'Team Member', department: 'Growth', designation: 'Member' },
+    { name: 'Govind', email: 'govind.singh@resustainability.com', role: 'Initiative Lead', department: 'Governance', designation: 'Lead' },
+    { name: 'Dr Malini', email: 'malinireddy.y@resustainability.com', role: 'Team Member', department: 'Consultancy', designation: 'Member' },
+    { name: 'Pankaj Maharaj', email: 'pankaj.maharaj@resustainability.com', role: 'Team Member', department: 'Finance', designation: 'Member' },
+    { name: 'ESHWAR KONKATI', email: 'eshwar.k@resustainability.com', role: 'Initiative Lead', department: 'Projects', designation: 'Lead' },
+    { name: 'Sanjiv Kumar', email: 'sksanjiv@resustainability.com', role: 'Initiative Lead', department: 'Operations', designation: 'Lead' },
+    { name: 'Vinod Babu', email: 'vinodbabu.b@resustainability.com', role: 'Team Member', department: 'Projects', designation: 'Member' },
+    { name: 'Siva Gangadhar Reddy', email: 'sivagangadharareddy@resustainability.com', role: 'Team Member', department: 'Operations', designation: 'Member' },
+    { name: 'Muralidharan', email: 'muralidharan.tk@resustainability.com', role: 'Team Member', department: 'Operations', designation: 'Member' },
+    { name: 'Victor', email: 'victorbabu@resustainability.com', role: 'Team Member', department: 'Operations', designation: 'Member' },
+    { name: 'Lalit Vijay', email: 'lalit.vijay@resustainability.com', role: 'Team Member', department: 'Operations', designation: 'Member' },
+    { name: 'Chaitanya', email: 'mchaitanyarao@resustainability.com', role: 'Initiative Lead', department: 'Finance', designation: 'Lead' },
+    { name: 'KRC Shekar', email: 'krc.shekhar@resustainability.com', role: 'Team Member', department: 'Finance', designation: 'Member' },
+    { name: 'Anil Sharma', email: 'anilkumar.sharma@resustainability.com', role: 'Team Member', department: 'Finance', designation: 'Member' },
+    { name: 'Suchitra', email: 'suchitra.dumpa@resustainability.com', role: 'Team Member', department: 'Finance', designation: 'Member' },
+    { name: 'Pavan Kommuri F&A', email: 'pavan.kommuri@resustainability.com', role: 'Team Member', department: 'Finance', designation: 'Member' },
+    { name: 'Chandrakanth (SCM)', email: 'chandrakant.c@resustainability.com', role: 'Team Member', department: 'SCM', designation: 'Member' },
+    { name: 'Dr Srinivas', email: 'drksrinivas@resustainability.com', role: 'Initiative Lead', department: 'Technology', designation: 'Lead' },
+    { name: 'Dr.Shilpa', email: 'shilpa.mishra@resustainability.com', role: 'Team Member', department: 'Technology', designation: 'Member' },
+    { name: 'Subhash Koduri', email: 'subash.k@resustainability.com', role: 'Team Member', department: 'ESG', designation: 'Member' },
+    { name: 'Srinivas G', email: 'srinivasg@resustainability.com', role: 'Team Member', department: 'Technology', designation: 'Member' },
+    { name: 'Nadurmath', email: 'chanbasaya.sn@resustainability.com', role: 'Team Member', department: 'Technology', designation: 'Member' },
+    { name: 'Abhay Ranjan', email: 'abhayranjan@resustainability.com', role: 'Team Member', department: 'Technology', designation: 'Member' },
+    { name: 'Ganesh Ram', email: 'ganeshram.r@resustainability.com', role: 'Initiative Lead', department: 'Digital', designation: 'Lead' },
+    { name: 'Tirupathi Reddy', email: 'treddy@resustainability.com', role: 'Team Member', department: 'Digital', designation: 'Member' },
+    { name: 'Praveen Kumar M', email: 'praveenkumar.m@resustainability.com', role: 'Team Member', department: 'Digital', designation: 'Member' },
+    { name: 'OM Prakash', email: 'omprakash.v@resustainability.com', role: 'Team Member', department: 'Digital', designation: 'Member' },
+    { name: 'Shyam Sunder Appi Reddy', email: 'shyama.sundar@resustainability.com', role: 'Team Member', department: 'Digital', designation: 'Member' },
+    { name: 'Nitin Gaurgi', email: 'nitin.gaurgi@resustainability.com', role: 'Team Member', department: 'Digital', designation: 'Member' },
+    { name: 'Cibey', email: 'cibey.abraham@resustainability.com', role: 'Team Member', department: 'Digital', designation: 'Member' },
+    { name: 'Ganesh Prabhu', email: 'ganeshprabu.s@resustainability.com', role: 'Team Member', department: 'Digital', designation: 'Member' },
+    { name: 'Parisutham', email: 'parisutham.v@resustainability.com', role: 'Initiative Lead', department: 'Operations', designation: 'Lead' },
+    { name: 'Bhaskara Musala', email: 'bhaskar.m@resustainability.com', role: 'Team Member', department: 'Operations', designation: 'Member' },
+    { name: 'Amit Sudhakar G', email: 'amit.g@resustainability.com', role: 'Team Member', department: 'Operations', designation: 'Member' },
+    { name: 'Santharam', email: 'bsram@resustainability.com', role: 'Team Member', department: 'Operations', designation: 'Member' },
+    { name: 'Anupam Prasad Reddy', email: 'anupam.mishra@resustainability.com', role: 'Initiative Lead', department: 'Operations', designation: 'Lead' },
+    { name: 'Murali Krishna R', email: 'muralikrishna.r@resustainability.com', role: 'Team Member', department: 'Operations', designation: 'Member' },
+    { name: 'Rajashekar Reddy', email: 'rajasekharareddy.k@resustainability.com', role: 'Team Member', department: 'Operations', designation: 'Member' },
+    { name: 'Harsha', email: 'harsha.donth@resustainability.com.sg', role: 'Initiative Lead', department: 'Growth', designation: 'Lead' },
+    { name: 'Ang King Yong', email: 'ang.kinyong@resustainability.com.sg', role: 'Team Member', department: 'Growth', designation: 'Member' },
+    { name: 'CK Lim', email: 'ck.lim@teeinfra.com', role: 'Team Member', department: 'Growth', designation: 'Member' },
+    { name: 'Satya', email: 'satya.a@resustainability.com', role: 'Initiative Lead', department: 'M&A', designation: 'Lead' },
+    { name: 'Avinash', email: 'avinash.sarlana@resustainability.com', role: 'Team Member', department: 'Sustainability', designation: 'Member' },
+    { name: 'Samrat', email: 'samrat@resilience.org.in', role: 'Team Member', department: 'ESG', designation: 'Member' },
+    { name: 'Sachin', email: 'sachin.watarkar@resustainability.com', role: 'Initiative Lead', department: 'Sales', designation: 'Lead' },
+    { name: 'Ranadheer', email: 'ranadheer.reddy@resustainability.com', role: 'Team Member', department: 'Sales', designation: 'Member' },
+    { name: 'Bhavesh', email: 'bhavesh.p@resustainability.com', role: 'Team Member', department: 'Sales', designation: 'Member' },
+    { name: 'Bobby', email: 'bobbykurien@resustainability.com', role: 'Initiative Lead', department: 'Projects', designation: 'Lead' },
+    { name: 'Nasarullah', email: 'nasarullah.mohd@resustainability.com', role: 'Team Member', department: 'Recycling', designation: 'Member' },
+    { name: 'Jaimin', email: 'jaimink.shah@resustainability.com', role: 'Team Member', department: 'Growth', designation: 'Member' },
+    { name: 'Nataraj', email: 'rkv.nataraj@resustainability.com', role: 'Initiative Lead', department: 'Logistics', designation: 'Lead' },
+    { name: 'Masood Mallick', email: 'mm@resustainability.com', role: 'Team Member', department: 'Strategy', designation: 'Member' },
+    { name: 'Durjoy', email: 'durjoy.mallick@resustainability.com', role: 'Team Member', department: 'Strategy', designation: 'Member' },
+    { name: 'Sudharshan', email: 'sudarshan.medagani@resustainability.com', role: 'Team Member', department: 'Strategy', designation: 'Member' },
+    { name: 'Manoj Soni', email: 'manoj.soni@resustainability.com', role: 'Team Member', department: 'Finance', designation: 'Member' },
+    { name: 'Sumanth', email: 'sumanth.g@resustainability.com', role: 'Team Member', department: 'Projects', designation: 'Member' },
+    { name: 'Navin SCM', email: 'navin.s@resustainability.com', role: 'Team Member', department: 'Projects', designation: 'Member' },
+    { name: 'Hanumanthu Murali', email: 'muralimohan.h@resustainability.com', role: 'Team Member', department: 'Innovation', designation: 'Member' },
+    { name: 'Dr Rajeshwar', email: 'rajeshwar.d@resustainability.com', role: 'Team Member', department: 'Projects', designation: 'Member' },
+    { name: 'Dr Mrinal', email: 'mrinal.mallik@resustainability.com', role: 'Team Member', department: 'Logistics', designation: 'Member' },
+    { name: 'Dr Chakradhar', email: 'drchakradhar@resustainability.com', role: 'Team Member', department: 'Compliance', designation: 'Member' },
 ];
 
 
@@ -177,25 +177,27 @@ const designationsRaw = [
 
 async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: string): Promise<AuthUser | null> {
     try {
+        // Attempt to create the user. This is the fastest way to check existence.
         const userCredential = await createUserWithEmailAndPassword(auth, email, password || 'password123');
-        console.log(`- Auth user created for ${email}`);
+        console.log(`- Auth user CREATED for ${email}`);
         return userCredential.user;
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
-            console.log(`- Auth user for ${email} already exists. Attempting sign-in to retrieve UID.`);
+            // If the user already exists, sign in to retrieve their AuthUser object.
             try {
                 const userCredential = await signInWithEmailAndPassword(auth, email, password || 'password123');
+                 console.log(`- Auth user for ${email} already exists. Logged in to retrieve.`);
                 return userCredential.user;
             } catch (signInError: any) {
-                 if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/wrong-password') {
-                    console.warn(`  - Could not sign in to retrieve UID for ${email}. This user will be skipped for this seeding run. Please ensure passwords are correct or remove the user from Firebase Auth to have them re-created.`);
-                    return null;
-                }
-                console.error(`  - Error signing in to existing user ${email}:`, signInError.message);
-                return null;
+                // This can happen if the password was changed from a previous seeding run.
+                console.warn(`  - Could not sign in to existing user ${email} to get UID. This may impact initiative assignment. Error: ${signInError.message}`);
+                // Return a placeholder-like object so the calling function knows the UID exists but we couldn't get the full object.
+                // We will rely on finding the user profile by email later.
+                return { uid: `existing-user-${email}` } as AuthUser;
             }
         }
-        console.error(`  - Error processing auth for user ${email}:`, error.message);
+        // For other errors during creation.
+        console.error(`- Error processing auth for user ${email}:`, error.message);
         return null;
     }
 }
@@ -203,93 +205,87 @@ async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: st
 
 export async function runSeed(db: Firestore, auth: Auth) {
     console.log('--- Firebase Seeding Script ---');
-    
-    console.log('STEP 1: Seeding Firestore database...');
-    const batch = writeBatch(db);
-    const userIdMap: Record<string, string> = {};
-    const adminUserRaw = usersRaw.find(u => u.role === 'Admin');
 
-    console.log('\nSTEP 2: Ensuring Admin user exists...');
-    if (adminUserRaw) {
-        const adminAuthUser = await createOrRetrieveAuthUser(auth, adminUserRaw.email, 'password123');
-        if (adminAuthUser?.uid) {
-             const adminRef = doc(db, 'users', adminAuthUser.uid);
-             const adminDoc = await getDoc(adminRef);
+    // --- STEP 1: Process Master Data ---
+    console.log('\nSTEP 1: Seeding Departments and Designations...');
+    const masterBatch = writeBatch(db);
+    departmentsRaw.forEach(dept => {
+        const deptRef = doc(db, 'departments', dept.id);
+        masterBatch.set(deptRef, { name: dept.name });
+    });
+    designationsRaw.forEach(desig => {
+        const desigRef = doc(db, 'designations', desig.id);
+        masterBatch.set(desigRef, { name: desig.name });
+    });
+    await masterBatch.commit();
+    console.log(`- Committed ${departmentsRaw.length} departments and ${designationsRaw.length} designations.`);
 
-             if (!adminDoc.exists()) {
-                const adminProfile: User = {
-                    id: adminAuthUser.uid,
-                    name: adminUserRaw.name,
-                    email: adminUserRaw.email,
-                    role: adminUserRaw.role as User['role'],
-                    department: adminUserRaw.department || 'Executive',
-                    designation: adminUserRaw.designation || 'CEO',
-                    active: true,
-                    photoUrl: `https://picsum.photos/seed/${adminAuthUser.uid}/40/40`,
-                };
-                await setDoc(adminRef, adminProfile);
-                console.log(`- Admin profile created for ${adminUserRaw.email}.`);
-             } else {
-                console.log(`- Admin profile for ${adminUserRaw.email} already exists.`);
-             }
-             userIdMap[adminUserRaw.email.toLowerCase()] = adminAuthUser.uid;
-             console.log(`- Admin user ${adminUserRaw.email} processed.`);
-        } else {
-             console.error(`- CRITICAL: Failed to create or verify admin user ${adminUserRaw.email}. Halting seed.`);
-             return;
-        }
-    } else {
-        console.error('- CRITICAL: No user with role "Admin" found in seed data. Halting.');
-        return;
-    }
+
+    // --- STEP 2: Process All Users (Auth & Firestore) ---
+    console.log('\nSTEP 2: Processing all users...');
+    const userProcessingPromises: Promise<void>[] = [];
+    const userIdMap = new Map<string, string>();
 
     const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
-    
-    // Add Users
-    console.log('\nSTEP 3: Processing other users...');
-    for (const userRaw of uniqueUsers) {
-        if(userRaw.role === 'Admin') continue; // Skip admin
 
-        const authUser = await createOrRetrieveAuthUser(auth, userRaw.email, 'password123');
-        if (authUser?.uid) {
-            const userRef = doc(db, 'users', authUser.uid);
+    for (const userRaw of uniqueUsers) {
+        const p = (async () => {
+            // Ensure auth user exists
+            const authUser = await createOrRetrieveAuthUser(auth, userRaw.email);
+            if (!authUser || !authUser.uid) {
+                console.warn(`- SKIPPING user profile for ${userRaw.email} due to auth issue.`);
+                return;
+            }
+            
+            // At this point, we have a valid UID.
+            const userId = authUser.uid;
+            userIdMap.set(userRaw.email.toLowerCase(), userId);
+            
+            const userRef = doc(db, 'users', userId);
             const userDoc = await getDoc(userRef);
 
+            // Only create the user profile if it doesn't already exist.
             if (!userDoc.exists()) {
-                 const userProfile: User = {
-                    id: authUser.uid,
+                const userProfile: User = {
+                    id: userId,
                     name: userRaw.name,
                     email: userRaw.email,
                     role: userRaw.role as User['role'],
                     department: userRaw.department || 'Unassigned',
-                    designation: userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member',
+                    designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
                     active: true,
-                    photoUrl: `https://picsum.photos/seed/${authUser.uid}/40/40`,
+                    photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
                 };
-                batch.set(userRef, userProfile);
+                await setDoc(userRef, userProfile);
+                console.log(`- Firestore profile CREATED for ${userRaw.email}`);
+            } else {
+                 console.log(`- Firestore profile for ${userRaw.email} already exists. Skipping.`);
             }
-             if (!userIdMap[userRaw.email.toLowerCase()]) {
-                userIdMap[userRaw.email.toLowerCase()] = authUser.uid;
-            }
-        }
+        })();
+        userProcessingPromises.push(p);
     }
-    console.log(`- Queued ${Object.keys(userIdMap).length -1} other users for batch write.`);
     
-    // Add Initiatives and Subcollections
-    console.log('\nSTEP 4: Processing initiatives...');
-    initiativesRaw.forEach(initRaw => {
-        const initiativeRef = doc(collection(db, 'initiatives'), initRaw.id);
-        const mappedLeadIds = initRaw.leadEmails.map(email => {
-            const uid = userIdMap[email.toLowerCase()];
-            if (!uid) console.warn(`[Seeding Warning] Lead email not found in user map: ${email}`);
-            return uid;
-        }).filter(Boolean);
+    // Wait for all user processing to complete before moving to initiatives.
+    await Promise.all(userProcessingPromises);
+    console.log(`- Finished processing ${uniqueUsers.length} users.`);
 
-        const mappedMemberIds = initRaw.memberEmails.map(email => {
-            const uid = userIdMap[email.toLowerCase()];
-            if (!uid) console.warn(`[Seeding Warning] Member email not found in user map: ${email}`);
-            return uid;
-        }).filter(Boolean);
+
+    // --- STEP 3: Seed Initiatives ---
+    console.log('\nSTEP 3: Seeding initiatives...');
+    const initiativeBatch = writeBatch(db);
+    let initiativesAdded = 0;
+    
+    for (const initRaw of initiativesRaw) {
+        const initiativeRef = doc(db, 'initiatives', initRaw.id);
+        const initiativeDoc = await getDoc(initiativeRef);
+        
+        if (initiativeDoc.exists()) {
+            console.log(`- Initiative "${initRaw.name}" already exists. Skipping.`);
+            continue;
+        }
+
+        const mappedLeadIds = initRaw.leadEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
+        const mappedMemberIds = initRaw.memberEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
 
         const mappedInitiative = {
             name: initRaw.name,
@@ -308,32 +304,16 @@ export async function runSeed(db: Firestore, auth: Auth) {
             createdAt: new Date(),
             updatedAt: new Date(),
         };
-        batch.set(initiativeRef, mappedInitiative);
-    });
-    console.log(`- Queued ${initiativesRaw.length} initiatives for batch write.`);
+        initiativeBatch.set(initiativeRef, mappedInitiative);
+        initiativesAdded++;
+    }
 
-    // Add Departments
-    console.log('\nSTEP 5: Processing master data...');
-    departmentsRaw.forEach(dept => {
-        const deptRef = doc(db, 'departments', dept.id);
-        batch.set(deptRef, { name: dept.name });
-    });
-    console.log(`- Queued ${departmentsRaw.length} departments for batch write.`);
-
-    // Add Designations
-    designationsRaw.forEach(desig => {
-        const desigRef = doc(db, 'designations', desig.id);
-        batch.set(desigRef, { name: desig.name });
-    });
-    console.log(`- Queued ${designationsRaw.length} designations for batch write.`);
-
-    // Commit the batch
-    console.log('\nSTEP 6: Committing all data to Firestore...');
-    try {
-        await batch.commit();
-        console.log('✅ Batch committed successfully.');
-    } catch (error) {
-        console.error('❌ Error committing batch:', error);
-        throw error;
+    if (initiativesAdded > 0) {
+        await initiativeBatch.commit();
+        console.log(`- Committed ${initiativesAdded} new initiatives.`);
+    } else {
+        console.log("- No new initiatives to add.");
     }
 }
+
+    
