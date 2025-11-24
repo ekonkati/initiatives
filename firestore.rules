@@ -23,12 +23,10 @@ service cloud.firestore {
 
     function isInitiativeMember(initiativeId) {
       let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
-      // Check if the user is an admin OR if their UID is in the leadIds or teamMemberIds lists.
-      // Use hasAny() for list membership check.
-      return isUserAuthenticated() && 
-             (isAdmin() || 
-              (initiativeDoc.data.leadIds.hasAny([request.auth.uid])) ||
-              (initiativeDoc.data.teamMemberIds.hasAny([request.auth.uid])));
+      let isLead = 'leadIds' in initiativeDoc.data && request.auth.uid in initiativeDoc.data.leadIds;
+      let isTeamMember = 'teamMemberIds' in initiativeDoc.data && request.auth.uid in initiativeDoc.data.teamMemberIds;
+      
+      return isUserAuthenticated() && (isAdmin() || isLead || isTeamMember);
     }
 
     // --- Rules ---
