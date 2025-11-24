@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/icons"
 import Link from "next/link"
-import { useAuth, useUser, useFirestore, FirebaseClientProvider } from "@/firebase";
+import { useAuth, useUser, useFirestore, FirebaseClientProvider, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from "next/navigation";
 import { doc, setDoc } from 'firebase/firestore';
@@ -56,7 +56,7 @@ function SignupComponent() {
 
             // Create a user profile in Firestore
             const userRef = doc(firestore, "users", user.uid);
-            await setDoc(userRef, {
+            const userProfileData = {
                 id: user.uid,
                 name: name,
                 email: user.email,
@@ -65,15 +65,37 @@ function SignupComponent() {
                 designation: 'New Member',
                 active: true,
                 photoUrl: `https://picsum.photos/seed/${user.uid}/40/40`
-            });
-            
-            // Don't auto-redirect, let them log in.
-            toast({
-                title: "Account Created",
-                description: "You can now log in with your credentials.",
-            })
-            router.push('/login'); 
+            };
+
+            // Use non-blocking write with contextual error handling
+            setDoc(userRef, userProfileData)
+              .then(() => {
+                toast({
+                    title: "Account Created",
+                    description: "You can now log in with your credentials.",
+                });
+                router.push('/login');
+              })
+              .catch((serverError) => {
+                // This will now catch permission errors and emit them globally
+                const permissionError = new FirestorePermissionError({
+                  path: userRef.path,
+                  operation: 'create',
+                  requestResourceData: userProfileData,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+
+                // We can still show a generic toast to the user
+                toast({
+                  title: "Signup Failed",
+                  description: "Could not create user profile. Permissions denied.",
+                  variant: "destructive",
+                });
+                setIsLoading(false);
+              });
+
         } catch (error: any) {
+            // This catches errors from createUserWithEmailAndPassword (e.g., weak password)
             toast({
                 title: "Signup Failed",
                 description: error.message,
