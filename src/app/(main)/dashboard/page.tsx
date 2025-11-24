@@ -66,46 +66,54 @@ export default function DashboardPage() {
         <main className="flex-1 space-y-4 p-4 pt-6 md:p-8">
             <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Initiatives</CardTitle>
-                        <Briefcase className="h-4 w-4 text-muted-foreground"/>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.total}</div>
-                        <p className="text-xs text-muted-foreground">Across all departments</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Active Initiatives</CardTitle>
-                        <Activity className="h-4 w-4 text-muted-foreground"/>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.active}</div>
-                        <p className="text-xs text-muted-foreground">Currently in progress</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Completed Initiatives</CardTitle>
-                        <CheckCircle className="h-4 w-4 text-muted-foreground"/>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.completed}</div>
-                        <p className="text-xs text-muted-foreground">Successfully delivered</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Team Members</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground"/>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.users}</div>
-                        <p className="text-xs text-muted-foreground">Involved in initiatives</p>
-                    </CardContent>
-                </Card>
+                <Link href="/initiatives">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total Initiatives</CardTitle>
+                            <Briefcase className="h-4 w-4 text-muted-foreground"/>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.total}</div>
+                            <p className="text-xs text-muted-foreground">Across all departments</p>
+                        </CardContent>
+                    </Card>
+                </Link>
+                <Link href="/initiatives?status=In%20Progress">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Active Initiatives</CardTitle>
+                            <Activity className="h-4 w-4 text-muted-foreground"/>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.active}</div>
+                            <p className="text-xs text-muted-foreground">Currently in progress</p>
+                        </CardContent>
+                    </Card>
+                </Link>
+                <Link href="/initiatives?status=Completed">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Completed Initiatives</CardTitle>
+                            <CheckCircle className="h-4 w-4 text-muted-foreground"/>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.completed}</div>
+                            <p className="text-xs text-muted-foreground">Successfully delivered</p>
+                        </CardContent>
+                    </Card>
+                </Link>
+                <Link href="/people">
+                    <Card className="hover:bg-muted/50 transition-colors">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Team Members</CardTitle>
+                            <Users className="h-4 w-4 text-muted-foreground"/>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.users}</div>
+                            <p className="text-xs text-muted-foreground">Involved in initiatives</p>
+                        </CardContent>
+                    </Card>
+                </Link>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 <Card className="lg:col-span-4">

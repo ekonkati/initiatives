@@ -1,7 +1,7 @@
+
 'use client';
 
 import { useInitiatives, useUsers } from "@/lib/data";
-import { AppShell } from "@/components/app-shell";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,7 +12,7 @@ import { MoreHorizontal, PlusCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { RAGStatus, User, Initiative } from "@/lib/types";
+import { RAGStatus, User, Initiative, InitiativeStatus } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
@@ -21,6 +21,7 @@ import { InitiativeFormDialog } from "@/components/initiative-form-dialog";
 import { useFirestore, useUser as useAuthUser } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { useSearchParams } from "next/navigation";
 
 const RAG_MAP: Record<RAGStatus, string> = {
   Red: 'bg-red-500',
@@ -29,6 +30,7 @@ const RAG_MAP: Record<RAGStatus, string> = {
 };
 
 export default function InitiativesPage() {
+    const searchParams = useSearchParams();
     const { data: initiativesData } = useInitiatives();
     const { data: usersData } = useUsers();
     const { user: authUser } = useAuthUser();
@@ -36,6 +38,11 @@ export default function InitiativesPage() {
     const firestore = useFirestore();
 
     const [isCreateFormOpen, setCreateFormOpen] = useState(false);
+    
+    // State for filters
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedTheme, setSelectedTheme] = useState(searchParams.get('category') || '');
+    const [selectedStatus, setSelectedStatus] = useState(searchParams.get('status') || '');
 
     const initiatives = initiativesData || [];
     const users = usersData || [];
@@ -52,6 +59,15 @@ export default function InitiativesPage() {
         if (!initiatives) return [];
         return [...new Set(initiatives.map(i => i.category))];
     }, [initiatives]);
+    
+    const filteredInitiatives = useMemo(() => {
+        return (initiatives || []).filter(initiative => {
+            const nameMatch = initiative.name.toLowerCase().includes(searchTerm.toLowerCase());
+            const themeMatch = !selectedTheme || initiative.category === selectedTheme;
+            const statusMatch = !selectedStatus || initiative.status === selectedStatus;
+            return nameMatch && themeMatch && statusMatch;
+        });
+    }, [initiatives, searchTerm, selectedTheme, selectedStatus]);
 
     const onInitiativeCreate = async (values: any) => {
         if (!firestore || !authUser) return;
@@ -89,25 +105,31 @@ export default function InitiativesPage() {
                     <CardHeader>
                         <CardTitle>All Initiatives</CardTitle>
                         <CardDescription>Browse and manage all strategic initiatives.</CardDescription>
-                        <div className="mt-4 flex items-center gap-2">
-                            <Input placeholder="Search by name..." className="max-w-sm" />
-                            <Select>
-                                <SelectTrigger className="w-[180px]">
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <Input 
+                                placeholder="Search by name..." 
+                                className="max-w-sm"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            <Select value={selectedTheme} onValueChange={setSelectedTheme}>
+                                <SelectTrigger className="w-full sm:w-[180px]">
                                     <SelectValue placeholder="Filter by theme" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="">All Themes</SelectItem>
                                     {themes.map(theme => <SelectItem key={theme} value={theme}>{theme}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <Select>
-                                <SelectTrigger className="w-[180px]">
+                            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                                <SelectTrigger className="w-full sm:w-[180px]">
                                     <SelectValue placeholder="Filter by status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="In Progress">In Progress</SelectItem>
-                                    <SelectItem value="Completed">Completed</SelectItem>
-                                    <SelectItem value="Not Started">Not Started</SelectItem>
-                                    <SelectItem value="On Hold">On Hold</SelectItem>
+                                    <SelectItem value="">All Statuses</SelectItem>
+                                    {Object.values(InitiativeStatus).map(status => (
+                                        <SelectItem key={status} value={status}>{status}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -127,7 +149,7 @@ export default function InitiativesPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {initiatives.map(initiative => (
+                                {filteredInitiatives.map(initiative => (
                                     <TableRow key={initiative.id}>
                                         <TableCell>
                                             <div className={cn("h-2.5 w-2.5 rounded-full", RAG_MAP[initiative.ragStatus])} />
