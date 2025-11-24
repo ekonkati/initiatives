@@ -1,7 +1,7 @@
 
 'use client'
 
-import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError, collectionGroup, getDocs } from 'firebase/firestore';
+import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError, collectionGroup, getDocs, getDoc } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useUser as useAuthUser } from '@/firebase';
 import { useCollection, useDoc } from '@/firebase';
 import { type User, type Initiative, type Task, type DailyCheckin, type InitiativeRating, type UserRating, type Department, type Designation, type Attachment } from './types';
@@ -37,21 +37,31 @@ export const useInitiatives = () => {
     const firestore = useFirestore();
     const { user: authUser, isUserLoading: isAuthUserLoading } = useAuthUser();
     const [initiatives, setInitiatives] = useState<{ data: Initiative[] | null, isLoading: boolean, error: Error | null }>({ data: null, isLoading: true, error: null });
-    const { data: currentUser } = useUser(authUser?.uid);
 
     useEffect(() => {
-        if (isAuthUserLoading || !firestore || !authUser || !currentUser) {
-            setInitiatives({ data: null, isLoading: true, error: null });
+        if (isAuthUserLoading || !firestore || !authUser) {
+            // Keep loading if auth state is not resolved
+            if (isAuthUserLoading) {
+              setInitiatives({ data: null, isLoading: true, error: null });
+            }
             return;
         }
 
         const fetchInitiatives = async () => {
             setInitiatives({ data: null, isLoading: true, error: null });
             try {
-                let initiativesQuery;
+                // Fetch the current user's profile to check their role
+                const userDocRef = doc(firestore, 'users', authUser.uid);
+                const userDocSnap = await getDoc(userDocRef);
+                const currentUser = userDocSnap.exists() ? userDocSnap.data() as User : null;
+
+                if (!currentUser) {
+                    throw new Error("Could not find current user's profile.");
+                }
+
                 if (currentUser.role === 'Admin') {
                     // Admins fetch all initiatives
-                    initiativesQuery = query(collection(firestore, 'initiatives'));
+                    const initiativesQuery = query(collection(firestore, 'initiatives'));
                     const snapshot = await getDocs(initiativesQuery);
                     const allInitiatives = snapshot.docs.map(doc => ({ ...doc.data() as Initiative, id: doc.id }));
                     setInitiatives({ data: allInitiatives, isLoading: false, error: null });
@@ -85,7 +95,7 @@ export const useInitiatives = () => {
 
         fetchInitiatives();
         
-    }, [firestore, authUser, isAuthUserLoading, currentUser]);
+    }, [firestore, authUser, isAuthUserLoading]);
 
     return initiatives;
 };
