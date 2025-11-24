@@ -17,6 +17,7 @@ import { useAuth, useUser, useFirestore, FirebaseClientProvider } from "@/fireba
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from "next/navigation";
 import { doc, setDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 
 function SignupComponent() {
@@ -24,11 +25,11 @@ function SignupComponent() {
     const firestore = useFirestore();
     const router = useRouter();
     const { user: authUser, isUserLoading } = useUser();
+    const { toast } = useToast();
     
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
-    const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
@@ -40,9 +41,12 @@ function SignupComponent() {
 
     const handleSignup = async () => {
         if (!auth || !firestore) return;
-        setError(null);
         if (!name) {
-            setError("Please enter your name.");
+            toast({
+                title: "Signup Failed",
+                description: "Please enter your name.",
+                variant: "destructive",
+            });
             return;
         }
         setIsLoading(true);
@@ -62,16 +66,29 @@ function SignupComponent() {
                 active: true,
                 photoUrl: `https://picsum.photos/seed/${user.uid}/40/40`
             });
-
-            router.push('/'); // Redirect to dashboard after successful signup
+            
+            // Don't auto-redirect, let them log in.
+            toast({
+                title: "Account Created",
+                description: "You can now log in with your credentials.",
+            })
+            router.push('/login'); 
         } catch (error: any) {
-            setError(error.message);
+            toast({
+                title: "Signup Failed",
+                description: error.message,
+                variant: "destructive",
+            });
             setIsLoading(false);
         }
     }
 
     if (isUserLoading) {
       return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    }
+
+    if (authUser) {
+        return null;
     }
 
   return (
@@ -85,7 +102,6 @@ function SignupComponent() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Full Name</Label>
