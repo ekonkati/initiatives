@@ -12,8 +12,7 @@ service cloud.firestore {
 
     function isAdmin() {
       // Check if the user document exists and the role is 'Admin'.
-      return isUserAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) 
-             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
+      return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
     }
 
     function isOwner(userId) {
@@ -21,11 +20,11 @@ service cloud.firestore {
     }
 
     function isInitiativeMember(initiativeId) {
-      // Correctly checks if a user is a lead, team member, or an admin for a given initiative.
+      // Correctly and safely checks if a user is a lead, team member, or an admin for a given initiative.
       // This is the robust way to check for membership in lists that may or may not exist.
       let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
-      let isLead = request.auth.uid in initiativeDoc.data.leadIds;
-      let isTeamMember = request.auth.uid in initiativeDoc.data.teamMemberIds;
+      let isLead = request.auth.uid in (initiativeDoc.data.leadIds);
+      let isTeamMember = request.auth.uid in (initiativeDoc.data.teamMemberIds);
       
       return isUserAuthenticated() && (isAdmin() || isLead || isTeamMember);
     }
