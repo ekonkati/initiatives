@@ -41,8 +41,8 @@ export default function InitiativesPage() {
     
     // State for filters
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedTheme, setSelectedTheme] = useState(searchParams.get('category') || '');
-    const [selectedStatus, setSelectedStatus] = useState(searchParams.get('status') || '');
+    const [selectedTheme, setSelectedTheme] = useState(searchParams.get('category') || 'all');
+    const [selectedStatus, setSelectedStatus] = useState(searchParams.get('status') || 'all');
 
     const initiatives = initiativesData || [];
     const users = usersData || [];
@@ -63,8 +63,8 @@ export default function InitiativesPage() {
     const filteredInitiatives = useMemo(() => {
         return (initiatives || []).filter(initiative => {
             const nameMatch = initiative.name.toLowerCase().includes(searchTerm.toLowerCase());
-            const themeMatch = !selectedTheme || initiative.category === selectedTheme;
-            const statusMatch = !selectedStatus || initiative.status === selectedStatus;
+            const themeMatch = selectedTheme === 'all' || initiative.category === selectedTheme;
+            const statusMatch = selectedStatus === 'all' || initiative.status === selectedStatus;
             return nameMatch && themeMatch && statusMatch;
         });
     }, [initiatives, searchTerm, selectedTheme, selectedStatus]);
@@ -117,7 +117,7 @@ export default function InitiativesPage() {
                                     <SelectValue placeholder="Filter by theme" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">All Themes</SelectItem>
+                                    <SelectItem value="all">All Themes</SelectItem>
                                     {themes.map(theme => <SelectItem key={theme} value={theme}>{theme}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -126,7 +126,7 @@ export default function InitiativesPage() {
                                     <SelectValue placeholder="Filter by status" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">All Statuses</SelectItem>
+                                    <SelectItem value="all">All Statuses</SelectItem>
                                     {Object.values(InitiativeStatus).map(status => (
                                         <SelectItem key={status} value={status}>{status}</SelectItem>
                                     ))}
