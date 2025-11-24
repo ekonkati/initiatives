@@ -16,6 +16,7 @@ export const useUsers = () => {
   const { user, isUserLoading } = useAuthUser();
   const q = useMemoFirebase(() => (user ? query(collection(firestore, 'users')) : null), [firestore, user]);
   const result = useCollection<User>(q);
+  // The overall loading state depends on both the user being loaded and the collection query.
   return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 
@@ -30,13 +31,14 @@ export const useInitiatives = () => {
   const { user, isUserLoading } = useAuthUser();
   const q = useMemoFirebase(() => (user ? query(collection(firestore, 'initiatives')) : null), [firestore, user]);
   const result = useCollection<Initiative>(q);
+   // The overall loading state depends on both the user being loaded and the collection query.
   return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 
 export const useInitiative = (id: string | undefined) => {
     const firestore = useFirestore();
-    const { isUserLoading } = useAuthUser();
-    const docRef = useMemoFirebase(() => (id ? doc(firestore, 'initiatives', id) : null), [firestore, id]);
+    const { user, isUserLoading } = useAuthUser();
+    const docRef = useMemoFirebase(() => (id && user ? doc(firestore, 'initiatives', id) : null), [firestore, id, user]);
     const { data, isLoading, error } = useDoc<Initiative>(docRef);
     return { data, isLoading: isLoading || isUserLoading, error };
 };
@@ -44,14 +46,18 @@ export const useInitiative = (id: string | undefined) => {
 
 export const useTasksForInitiative = (initiativeId: string | undefined) => {
   const firestore = useFirestore();
-  const q = useMemoFirebase(() => initiativeId ? query(collection(firestore, 'initiatives', initiativeId, 'tasks')) : null, [firestore, initiativeId]);
-  return useCollection<Task>(q);
+  const { user, isUserLoading } = useAuthUser();
+  const q = useMemoFirebase(() => (initiativeId && user ? query(collection(firestore, 'initiatives', initiativeId, 'tasks')) : null), [firestore, initiativeId, user]);
+  const result = useCollection<Task>(q);
+  return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 
 export const useAttachmentsForInitiative = (initiativeId: string | undefined) => {
     const firestore = useFirestore();
-    const q = useMemoFirebase(() => initiativeId ? query(collection(firestore, 'initiatives', initiativeId, 'attachments')) : null, [firestore, initiativeId]);
-    return useCollection<Attachment>(q);
+    const { user, isUserLoading } = useAuthUser();
+    const q = useMemoFirebase(() => (initiativeId && user ? query(collection(firestore, 'initiatives', initiativeId, 'attachments')) : null), [firestore, initiativeId, user]);
+    const result = useCollection<Attachment>(q);
+    return { ...result, isLoading: isUserLoading || result.isLoading };
 }
 
 export const useTasksForUser = (userId: string | undefined) => {
@@ -75,30 +81,40 @@ export const useTasksForUser = (userId: string | undefined) => {
 
 export const useInitiativeRatings = (initiativeId: string | undefined) => {
     const firestore = useFirestore();
-    const q = useMemoFirebase(() => initiativeId ? query(collection(firestore, 'initiatives', initiativeId, 'initiativeRatings')) : null, [firestore, initiativeId]);
-    return useCollection<InitiativeRating>(q);
+    const { user, isUserLoading } = useAuthUser();
+    const q = useMemoFirebase(() => (initiativeId && user ? query(collection(firestore, 'initiatives', initiativeId, 'initiativeRatings')) : null), [firestore, initiativeId, user]);
+    const result = useCollection<InitiativeRating>(q);
+    return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 
 export const useUserRatings = (initiativeId: string | undefined) => {
     const firestore = useFirestore();
-    const q = useMemoFirebase(() => initiativeId ? query(collection(firestore, 'initiatives', initiativeId, 'userRatings')) : null, [firestore, initiativeId]);
-    return useCollection<UserRating>(q);
+    const { user, isUserLoading } = useAuthUser();
+    const q = useMemoFirebase(() => (initiativeId && user ? query(collection(firestore, 'initiatives', initiativeId, 'userRatings')) : null), [firestore, initiativeId, user]);
+    const result = useCollection<UserRating>(q);
+    return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 
 export const useDailyCheckins = (initiativeId: string | undefined) => {
     const firestore = useFirestore();
-    const q = useMemoFirebase(() => initiativeId ? query(collection(firestore, 'initiatives', initiativeId, 'dailyCheckins')) : null, [firestore, initiativeId]);
-    return useCollection<DailyCheckin>(q);
+    const { user, isUserLoading } = useAuthUser();
+    const q = useMemoFirebase(() => (initiativeId && user ? query(collection(firestore, 'initiatives', initiativeId, 'dailyCheckins')) : null), [firestore, initiativeId, user]);
+    const result = useCollection<DailyCheckin>(q);
+    return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 
 export const useDepartments = () => {
   const firestore = useFirestore();
-  const q = useMemoFirebase(() => query(collection(firestore, 'departments')), [firestore]);
-  return useCollection<Department>(q);
+  const { user, isUserLoading } = useAuthUser();
+  const q = useMemoFirebase(() => (user ? query(collection(firestore, 'departments')) : null), [firestore, user]);
+  const result = useCollection<Department>(q);
+  return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 
 export const useDesignations = () => {
     const firestore = useFirestore();
-    const q = useMemoFirebase(() => query(collection(firestore, 'designations')), [firestore]);
-    return useCollection<Designation>(q);
+    const { user, isUserLoading } = useAuthUser();
+    const q = useMemoFirebase(() => (user ? query(collection(firestore, 'designations')) : null), [firestore, user]);
+    const result = useCollection<Designation>(q);
+    return { ...result, isLoading: isUserLoading || result.isLoading };
 };
