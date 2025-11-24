@@ -184,7 +184,11 @@ export default function AdminPage() {
                                         <TableBody>
                                             {isLoadingUsers ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={6} className="text-center">Loading users...</TableCell>
+                                                    <TableCell colSpan={6}>
+                                                        <div className="flex justify-center p-8">
+                                                          <div className="rounded-md border bg-card px-6 py-3 text-lg font-semibold shadow-sm">Loading...</div>
+                                                        </div>
+                                                    </TableCell>
                                                 </TableRow>
                                             ) : users.map(user => (
                                                 <TableRow key={user.id}>

@@ -53,7 +53,9 @@ export default function DashboardPage() {
         return (
             <>
                 <Header />
-                <div className="flex-1 space-y-4 p-4 pt-6 md:p-8">Loading dashboard...</div>
+                <div className="flex-1 flex items-center justify-center p-4">
+                  <div className="rounded-md border bg-card px-6 py-3 text-lg font-semibold shadow-sm">Loading...</div>
+                </div>
             </>
         )
     }

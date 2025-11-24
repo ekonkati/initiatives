@@ -93,7 +93,7 @@ export default function InitiativeDetailPage() {
             <>
                 <Header />
                 <main className="flex-1 flex items-center justify-center p-4">
-                    <div>Loading initiative details...</div>
+                    <div className="rounded-md border bg-card px-6 py-3 text-lg font-semibold shadow-sm">Loading...</div>
                 </main>
             </>
         );

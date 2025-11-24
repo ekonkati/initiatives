@@ -57,7 +57,7 @@ function LoginComponent() {
   if (isUserLoading) {
       return (
         <div className="flex h-screen w-full items-center justify-center">
-            <div className="text-lg font-semibold">Loading...</div>
+            <div className="rounded-md border bg-card px-6 py-3 text-lg font-semibold shadow-sm">Loading...</div>
         </div>
       );
   }
