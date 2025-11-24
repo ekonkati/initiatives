@@ -12,13 +12,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/icons"
 import Link from "next/link"
-import { useAuth, useUser } from "@/firebase";
+import { useAuth, useUser, FirebaseClientProvider } from "@/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-export default function LoginPage() {
+
+function LoginComponent() {
     const auth = useAuth();
     const router = useRouter();
     const { toast } = useToast();
@@ -116,4 +117,12 @@ export default function LoginPage() {
       </Card>
     </div>
   )
+}
+
+export default function LoginPage() {
+    return (
+        <FirebaseClientProvider>
+            <LoginComponent />
+        </FirebaseClientProvider>
+    )
 }

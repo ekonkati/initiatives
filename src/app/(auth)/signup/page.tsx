@@ -13,13 +13,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/icons"
 import Link from "next/link"
-import { useAuth, useUser } from "@/firebase";
+import { useAuth, useUser, useFirestore, FirebaseClientProvider } from "@/firebase";
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from "next/navigation";
 import { doc, setDoc } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
 
-export default function SignupPage() {
+
+function SignupComponent() {
     const auth = useAuth();
     const firestore = useFirestore();
     const router = useRouter();
@@ -136,4 +136,12 @@ export default function SignupPage() {
       </Card>
     </div>
   )
+}
+
+export default function SignupPage() {
+    return (
+        <FirebaseClientProvider>
+            <SignupComponent />
+        </FirebaseClientProvider>
+    )
 }
