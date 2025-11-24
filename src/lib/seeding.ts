@@ -89,10 +89,10 @@ const usersRaw = [
     { name: 'CK Lim', email: 'ck.lim@teeinfra.com', role: 'Team Member', department: 'Growth', designation: 'Member' },
     { name: 'Satya', email: 'satya.a@resustainability.com', role: 'Initiative Lead', department: 'M&A', designation: 'Lead' },
     { name: 'Avinash', email: 'avinash.sarlana@resustainability.com', role: 'Team Member', department: 'Sustainability', designation: 'Member' },
-    { name 'Samrat', email: 'samrat@resilience.org.in', role: 'Team Member', department: 'ESG', designation: 'Member' },
+    { name: 'Samrat', email: 'samrat@resilience.org.in', role: 'Team Member', department: 'ESG', designation: 'Member' },
     { name: 'Sachin', email: 'sachin.watarkar@resustainability.com', role: 'Initiative Lead', department: 'Sales', designation: 'Lead' },
     { name: 'Ranadheer', email: 'ranadheer.reddy@resustainability.com', role: 'Team Member', department: 'Sales', designation: 'Member' },
-    { name 'Bhavesh', email: 'bhavesh.p@resustainability.com', role: 'Team Member', department: 'Sales', designation: 'Member' },
+    { name: 'Bhavesh', email: 'bhavesh.p@resustainability.com', role: 'Team Member', department: 'Sales', designation: 'Member' },
     { name: 'Bobby', email: 'bobbykurien@resustainability.com', role: 'Initiative Lead', department: 'Projects', designation: 'Lead' },
     { name: 'Nasarullah', email: 'nasarullah.mohd@resustainability.com', role: 'Team Member', department: 'Recycling', designation: 'Member' },
     { name: 'Jaimin', email: 'jaimink.shah@resustainability.com', role: 'Team Member', department: 'Growth', designation: 'Member' },
@@ -188,12 +188,17 @@ async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: st
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
             try {
-                const userCredential = await signInWithEmailAndPassword(auth, email, password || 'password123');
-                return userCredential.user;
+                // We don't sign in, just return a placeholder that it exists.
+                // The profile creation logic will handle checking if the DB record exists.
+                return { uid: `existing-user-${email}` } as AuthUser;
             } catch (signInError: any) {
                 console.warn(`- Could not sign in to existing user ${email}. It might have a different password.`);
                 return null;
             }
+        } else if (error.code === 'auth/too-many-requests') {
+             console.warn(`- Rate limited while processing ${email}. Will retry...`);
+             await sleep(2000); // Wait 2 seconds before retrying
+             return createOrRetrieveAuthUser(auth, email, password);
         }
         throw error; // Re-throw other errors
     }
@@ -212,6 +217,7 @@ async function processInBatches<T, R>(
             return null; // Return null on error to not halt the entire process
         }));
         results.push(...await Promise.all(batchPromises));
+        await sleep(500); // Wait half a second between batches to avoid rate limits
     }
     return results;
 }
@@ -230,13 +236,15 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
         currentStep++;
         onProgress({ message: `Step 1/${totalSteps}: Processing Auth Users...`, percentage: (currentStep - 1) / totalSteps * 100 });
         
-        await processInBatches(uniqueUsers, 10, async (userRaw, index) => {
-             const progress = ((currentStep - 1) + (index / uniqueUsers.length)) / totalSteps * 100;
+        const authUserResults = await processInBatches(uniqueUsers, 10, async (userRaw, index) => {
+             const progress = ((currentStep - 1) + ((index || 0) / uniqueUsers.length)) / totalSteps * 100;
              onProgress({ message: `Creating auth user for ${userRaw.email}...`, percentage: progress });
             const authUser = await createOrRetrieveAuthUser(auth, userRaw.email);
-            if (authUser) {
+            if (authUser && !authUser.uid.startsWith('existing-user-')) {
                 userIdMap.set(userRaw.email.toLowerCase(), authUser.uid);
+                 return { email: userRaw.email, uid: authUser.uid };
             }
+            return { email: userRaw.email, uid: null }; // Keep track of which ones need UIDs later
         });
         
         onProgress({ message: `Step 1/${totalSteps}: Auth Users Processed.`, percentage: currentStep / totalSteps * 100 });
@@ -263,24 +271,28 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
         const userProfileBatch = writeBatch(db);
         let profilesToCreate = 0;
         for (const userRaw of uniqueUsers) {
-            const userId = userIdMap.get(userRaw.email.toLowerCase());
-            if (userId) {
-                const userRef = doc(db, 'users', userId);
+            const lowercasedEmail = userRaw.email.toLowerCase();
+            const authRecord = authUserResults.find(r => r?.email.toLowerCase() === lowercasedEmail);
+            
+            if (authRecord?.uid) { // Only process users with a real UID from creation
+                const userRef = doc(db, 'users', authRecord.uid);
                 const userDoc = await getDoc(userRef);
                 if (!userDoc.exists()) {
                     const userProfile: User = {
-                        id: userId,
+                        id: authRecord.uid,
                         name: userRaw.name,
                         email: userRaw.email,
                         role: userRaw.role as User['role'],
                         department: userRaw.department || 'Unassigned',
                         designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
                         active: true,
-                        photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
+                        photoUrl: `https://picsum.photos/seed/${authRecord.uid}/40/40`,
                     };
                     userProfileBatch.set(userRef, userProfile);
                     profilesToCreate++;
                 }
+                 // Make sure the map has the real UID
+                userIdMap.set(lowercasedEmail, authRecord.uid);
             }
         }
         if (profilesToCreate > 0) {
@@ -293,6 +305,12 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
         currentStep++;
         onProgress({ message: `Step 4/${totalSteps}: Seeding Initiatives...`, percentage: (currentStep - 1) / totalSteps * 100 });
         const initiativeBatch = writeBatch(db);
+        const allUsersSnapshot = await getDocs(collection(db, 'users'));
+        allUsersSnapshot.forEach(doc => {
+            const user = doc.data() as User;
+            userIdMap.set(user.email.toLowerCase(), user.id);
+        });
+
         for (const initRaw of initiativesRaw) {
             const initiativeRef = doc(db, 'initiatives', initRaw.id);
             const initiativeDoc = await getDoc(initiativeRef);
@@ -346,3 +364,5 @@ export async function clearData(db: Firestore) {
     }
     console.log('- Finished clearing data.');
 }
+
+    
