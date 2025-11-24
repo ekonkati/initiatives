@@ -1,7 +1,7 @@
 
 'use client'
 
-import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError, collectionGroup, getDocs, getDoc, or, Query } from 'firebase/firestore';
+import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError, collectionGroup, getDocs, getDoc, or, Query, documentId } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useUser as useAuthUser } from '@/firebase';
 import { useCollection, useDoc } from '@/firebase';
 import { type User, type Initiative, type Task, type DailyCheckin, type InitiativeRating, type UserRating, type Department, type Designation, type Attachment } from './types';
@@ -36,56 +36,42 @@ export const useUser = (id: string | undefined) => {
 
 export const useInitiatives = () => {
     const firestore = useFirestore();
-    const { user: authUser, isUserLoading: isAuthLoading } = useAuthUser();
-    const [initiativesQuery, setInitiativesQuery] = useState<Query<DocumentData> | null>(null);
+    const { user: authUser } = useAuthUser();
+    const { data: currentUser, isLoading: isUserLoading } = useUser(authUser?.uid);
 
-    useEffect(() => {
-        const buildQuery = async () => {
-            // Do not proceed until authentication is resolved and we have a user and firestore instance.
-            if (isAuthLoading || !authUser || !firestore) {
-                return;
-            }
+    const initiativesQuery = useMemoFirebase(() => {
+        if (!firestore || isUserLoading || !currentUser) {
+            return null; // Return null if firestore, user profile, or auth user is not ready
+        }
+        
+        // Admin Case
+        if (currentUser.role === 'Admin') {
+            return query(collection(firestore, 'initiatives'));
+        }
 
-            try {
-                // Step 1: Reliably fetch the current user's document to get their role.
-                const userDocRef = doc(firestore, 'users', authUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                
-                let finalQuery: Query<DocumentData>;
+        // Non-Admin Case
+        const initiativeIds = currentUser.initiativeMemberships;
 
-                // Step 2: Build the query based on the user's role.
-                if (userDocSnap.exists() && userDocSnap.data().role === 'Admin') {
-                    // User is an Admin, query all initiatives.
-                    finalQuery = query(collection(firestore, 'initiatives'));
-                } else {
-                    // User is not an Admin, build a constrained query.
-                    finalQuery = query(
-                        collection(firestore, 'initiatives'),
-                        or(
-                            where('leadIds', 'array-contains', authUser.uid),
-                            where('teamMemberIds', 'array-contains', authUser.uid)
-                        )
-                    );
-                }
-                setInitiativesQuery(finalQuery);
+        // If the user is not a member of any initiatives, return a query that finds nothing.
+        if (!initiativeIds || initiativeIds.length === 0) {
+            return query(collection(firestore, 'initiatives'), where(documentId(), 'in', ['non-existent-id']));
+        }
 
-            } catch (error) {
-                console.error("Error constructing initiatives query:", error);
-                // In case of error (e.g. user profile not found), default to a safe query
-                // that returns nothing for a non-existent user ID.
-                const safeQuery = query(collection(firestore, 'initiatives'), where('leadIds', 'array-contains', 'INVALID_USER_ID'));
-                setInitiativesQuery(safeQuery);
-            }
-        };
+        // If the user has more than 30 initiatives, we must fetch in chunks
+        if (initiativeIds.length > 30) {
+             console.warn("User is a member of more than 30 initiatives. The query will be chunked. Performance may be affected.");
+             // Firestore 'in' queries are limited to 30 items. We will handle this limitation in the future.
+             // For now, we query only the first 30.
+             const chunk = initiativeIds.slice(0, 30);
+             return query(collection(firestore, 'initiatives'), where(documentId(), 'in', chunk));
+        }
+        
+        // Standard case for a user with 1-30 initiatives
+        return query(collection(firestore, 'initiatives'), where(documentId(), 'in', initiativeIds));
 
-        buildQuery();
+    }, [firestore, currentUser, isUserLoading]);
 
-    }, [firestore, authUser, isAuthLoading]);
-
-    // useMemoize the query before passing to useCollection
-    const memoizedQuery = useMemoFirebase(() => initiativesQuery, [initiativesQuery]);
-
-    return useCollection<Initiative>(memoizedQuery);
+    return useCollection<Initiative>(initiativesQuery);
 };
 
 

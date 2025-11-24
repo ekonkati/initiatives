@@ -9,6 +9,7 @@ export interface User {
   designation: string;
   photoUrl?: string;
   active: boolean;
+  initiativeMemberships: string[]; // Array of initiative IDs
 }
 
 export enum InitiativeStatus {

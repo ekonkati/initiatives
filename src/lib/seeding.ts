@@ -245,15 +245,32 @@ const processInBatches = async <T, R>(
 
 export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCallback) {
     const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
-    const userIdMap = new Map<string, string>();
+    const emailToUidMap = new Map<string, string>();
+    const emailToInitiativeIdsMap = new Map<string, string[]>();
 
     try {
-        // Step 1: Process Auth Users in Batches
+        // Step 1: Process Auth Users and build email-to-UID map
         onProgress({ message: `Step 1/4: Processing ${uniqueUsers.length} Auth Users...`, percentage: 0 });
         await processInBatches(
             uniqueUsers,
             10, // Process 10 users per batch
-            (user) => createOrRetrieveAuthUser(auth, user.email),
+            async (user) => {
+                 try {
+                    await signInWithEmailAndPassword(auth, user.email, 'password123');
+                    if (auth.currentUser) {
+                         emailToUidMap.set(user.email.toLowerCase(), auth.currentUser.uid);
+                    }
+                 } catch (error: any) {
+                    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                        const newUser = await createOrRetrieveAuthUser(auth, user.email);
+                        if (newUser?.uid) {
+                             emailToUidMap.set(user.email.toLowerCase(), newUser.uid);
+                        }
+                    } else {
+                         console.error(`Error signing in or creating user ${user.email}:`, error);
+                    }
+                 }
+            },
             onProgress,
             0,
             25,
@@ -261,6 +278,17 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
         );
         onProgress({ message: `Step 1/4: Auth Users Processed.`, percentage: 25 });
         
+        // Build the map of which initiatives each user is in
+        initiativesRaw.forEach(init => {
+            const allMembers = [...init.leadEmails, ...init.memberEmails];
+            allMembers.forEach(email => {
+                const lowerEmail = email.toLowerCase();
+                if (!emailToInitiativeIdsMap.has(lowerEmail)) {
+                    emailToInitiativeIdsMap.set(lowerEmail, []);
+                }
+                emailToInitiativeIdsMap.get(lowerEmail)!.push(init.id);
+            });
+        });
 
         // Step 2: Seed Master Data
         onProgress({ message: `Step 2/4: Seeding Master Data...`, percentage: 25 });
@@ -278,84 +306,41 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
             console.log("Master data seeded successfully.");
         } catch (error) {
             console.error("Seeding Master Data failed:", error);
-            // This is a critical error, so we might want to stop.
             throw new Error("Failed to seed master data. " + (error as Error).message);
         }
         onProgress({ message: `Step 2/4: Master Data Seeded.`, percentage: 50 });
         
-        
         // Step 3: Seed User Profiles
         onProgress({ message: `Step 3/4: Seeding User Profiles...`, percentage: 50 });
-        
-        // Sign in as admin to get permissions for writing user profiles.
         try {
+            // Sign in as admin to get permissions for writing user profiles.
             await signInWithEmailAndPassword(auth, 'alia.hassan@example.com', 'password123');
-            console.log("Admin signed in successfully.");
-        } catch (error) {
-             console.error("Failed to sign in as admin. User profile seeding might fail due to permissions.", error);
-        }
-        
-        // Populate userIdMap by querying users collection by email
-        for (const userRaw of uniqueUsers) {
-            const emailLower = userRaw.email.toLowerCase();
-            if (!userIdMap.has(emailLower)) {
-                const q = query(collection(db, "users"), where("email", "==", userRaw.email));
-                const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) {
-                    const userDoc = querySnapshot.docs[0];
-                    userIdMap.set(emailLower, userDoc.id);
-                }
-            }
-        }
-        
-        try {
+            
             const userProfileBatch = writeBatch(db);
             for (const userRaw of uniqueUsers) {
                 const emailLower = userRaw.email.toLowerCase();
-                let userId = userIdMap.get(emailLower);
+                const userId = emailToUidMap.get(emailLower);
 
-                // If user doesn't exist in Firestore, they must have just been created in Auth.
-                if (!userId) {
-                    // This logic is flawed client-side. We will rely on user being created in a previous step.
-                    // For this to work, we need a way to get the UID after creation.
-                    // The robust way is a Cloud Function. The client-side way is brittle.
-                    // Let's assume the auth user was created and now we create their profile.
-                     try {
-                        // Re-sign in to get the user if not already the current user
-                        if (auth.currentUser?.email !== userRaw.email) {
-                           await signInWithEmailAndPassword(auth, userRaw.email, 'password123');
-                        }
-                        const authUser = auth.currentUser;
-
-                        if (authUser) {
-                            userId = authUser.uid;
-                            const userRef = doc(db, 'users', userId);
-                            const userProfile: User = {
-                                id: userId,
-                                name: userRaw.name,
-                                email: userRaw.email,
-                                role: userRaw.role as User['role'],
-                                department: userRaw.department || 'Unassigned',
-                                designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
-                                active: true,
-                                photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
-                            };
-                            userProfileBatch.set(userRef, userProfile);
-                            userIdMap.set(emailLower, userId); // Add to map for initiative seeding
-                        } else {
-                             console.warn(`Could not get auth user for ${userRaw.email} to create profile.`);
-                             continue;
-                        }
-                    } catch (authError) {
-                        console.error(`Error signing in user ${userRaw.email} to create profile: `, authError);
-                        continue;
-                    }
+                if (userId) {
+                    const userRef = doc(db, 'users', userId);
+                    const userProfile: User = {
+                        id: userId,
+                        name: userRaw.name,
+                        email: userRaw.email,
+                        role: userRaw.role as User['role'],
+                        department: userRaw.department || 'Unassigned',
+                        designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
+                        active: true,
+                        photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
+                        initiativeMemberships: emailToInitiativeIdsMap.get(emailLower) || [],
+                    };
+                    userProfileBatch.set(userRef, userProfile);
+                } else {
+                     console.warn(`Could not find UID for ${userRaw.email}. Skipping profile creation.`);
                 }
             }
             await userProfileBatch.commit();
             console.log("User profiles seeded successfully.");
-             // Sign back in as admin
-            await signInWithEmailAndPassword(auth, 'alia.hassan@example.com', 'password123');
         } catch (error) {
             console.error("Seeding User Profiles failed:", error);
             throw new Error("Failed to seed user profiles. " + (error as Error).message);
@@ -366,11 +351,12 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
         // Step 4: Seeding Initiatives
         onProgress({ message: `Step 4/4: Seeding Initiatives...`, percentage: 75 });
         try {
+            await signInWithEmailAndPassword(auth, 'alia.hassan@example.com', 'password123');
             const initiativeBatch = writeBatch(db);
             for (const initRaw of initiativesRaw) {
                 const initiativeRef = doc(db, 'initiatives', initRaw.id);
-                const mappedLeadIds = initRaw.leadEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
-                const mappedMemberIds = initRaw.memberEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
+                const mappedLeadIds = initRaw.leadEmails.map(email => emailToUidMap.get(email.toLowerCase())).filter(Boolean) as string[];
+                const mappedMemberIds = initRaw.memberEmails.map(email => emailToUidMap.get(email.toLowerCase())).filter(Boolean) as string[];
 
                 if (mappedLeadIds.length === 0) console.warn(`Initiative "${initRaw.name}" has no valid leads.`);
 
@@ -396,7 +382,6 @@ export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCal
             console.log("Initiatives seeded successfully.");
         } catch (error) {
             console.error("Seeding Initiatives failed:", error);
-            // This is a critical error.
             throw new Error("Failed to seed initiatives. " + (error as Error).message);
         }
         onProgress({ message: "Seeding Complete!", percentage: 100 });
