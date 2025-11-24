@@ -36,31 +36,49 @@ export const useUser = (id: string | undefined) => {
 
 export const useInitiatives = () => {
     const firestore = useFirestore();
-    const { user: authUser, isUserLoading } = useAuthUser();
-    const { data: currentUser, isLoading: isCurrentUserLoading } = useUser(authUser?.uid);
+    const { user: authUser, isUserLoading: isAuthLoading } = useAuthUser();
+    const [q, setQ] = useState<any>(null); // State to hold the query
 
-    const q = useMemoFirebase(() => {
-        if (isUserLoading || isCurrentUserLoading || !firestore || !authUser) {
-            return null;
-        }
-        
-        // If the user is an Admin, they can see all initiatives.
-        if (currentUser?.role === 'Admin') {
-            return query(collection(firestore, 'initiatives'));
+    useEffect(() => {
+        // Do not proceed until authentication is resolved and we have a user.
+        if (isAuthLoading || !authUser) {
+            return;
         }
 
-        // For non-admins, create a query that finds initiatives where they are either a lead or a team member.
-        // This query is secure because the firestore.rules ensure a user can only read documents they are a member of.
-        return query(
-            collection(firestore, 'initiatives'),
-            or(
-                where('leadIds', 'array-contains', authUser.uid),
-                where('teamMemberIds', 'array-contains', authUser.uid)
-            )
-        );
-    }, [firestore, authUser, isUserLoading, currentUser, isCurrentUserLoading]);
+        const fetchUserAndBuildQuery = async () => {
+            // Step 1: Reliably fetch the current user's document to get their role.
+            const userDocRef = doc(firestore, 'users', authUser.uid);
+            try {
+                const userDocSnap = await getDoc(userDocRef);
+                
+                // Step 2: Build the query based on the user's role.
+                if (userDocSnap.exists() && userDocSnap.data().role === 'Admin') {
+                    // User is an Admin, query all initiatives.
+                    setQ(query(collection(firestore, 'initiatives')));
+                } else {
+                    // User is not an Admin, build a constrained query.
+                    setQ(query(
+                        collection(firestore, 'initiatives'),
+                        or(
+                            where('leadIds', 'array-contains', authUser.uid),
+                            where('teamMemberIds', 'array-contains', authUser.uid)
+                        )
+                    ));
+                }
+            } catch (error) {
+                console.error("Error fetching user document for query construction:", error);
+                // Optionally handle error, e.g., set an error state
+            }
+        };
 
-    return useCollection<Initiative>(q);
+        fetchUserAndBuildQuery();
+
+    }, [firestore, authUser, isAuthLoading]);
+
+    // useMemoize the query before passing to useCollection
+    const memoizedQuery = useMemoFirebase(() => q, [q]);
+
+    return useCollection<Initiative>(memoizedQuery);
 };
 
 
