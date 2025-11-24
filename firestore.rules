@@ -11,7 +11,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Check if the user document exists and the role is 'Admin'.
+      // Check if the user document exists in the 'users' collection and the role is 'Admin'.
       return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
     }
 
@@ -39,7 +39,7 @@ service cloud.firestore {
     match /initiatives/{initiativeId} {
       // An admin can read any initiative.
       // A user can read an initiative if its ID is in their 'initiativeMemberships' list.
-      // This rule works for both `get` and `list` (with `in` query).
+      // This rule works for both `get` and `list` (with an `in` query).
       allow read: if isAdmin() || (initiativeId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.initiativeMemberships);
       
       // Write access is granted to members (leads/team) or admins.

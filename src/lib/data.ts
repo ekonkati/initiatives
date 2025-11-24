@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError, collectionGroup, getDocs, getDoc, or, Query, documentId } from 'firebase/firestore';
@@ -44,24 +45,26 @@ export const useInitiatives = () => {
             return null; // Return null if firestore, user profile, or auth user is not ready
         }
         
-        // Admin Case
+        // Admin Case: Fetch all initiatives
         if (currentUser.role === 'Admin') {
             return query(collection(firestore, 'initiatives'));
         }
 
-        // Non-Admin Case
+        // Non-Admin Case: Fetch initiatives based on the denormalized list
         const initiativeIds = currentUser.initiativeMemberships;
 
-        // If the user is not a member of any initiatives, return a query that finds nothing.
+        // If the user is not a member of any initiatives, return a query that finds nothing
+        // to avoid an error with an empty 'in' array.
         if (!initiativeIds || initiativeIds.length === 0) {
             return query(collection(firestore, 'initiatives'), where(documentId(), 'in', ['non-existent-id']));
         }
-
-        // If the user has more than 30 initiatives, we must fetch in chunks
+        
+        // Firestore 'in' queries are limited to 30 items. We must chunk the requests.
+        // For this app, we will assume a user is not in more than 30 initiatives.
+        // In a real-world scenario with more than 30, you'd need to run multiple queries
+        // and combine the results on the client.
         if (initiativeIds.length > 30) {
-             console.warn("User is a member of more than 30 initiatives. The query will be chunked. Performance may be affected.");
-             // Firestore 'in' queries are limited to 30 items. We will handle this limitation in the future.
-             // For now, we query only the first 30.
+             console.warn("User is a member of more than 30 initiatives. The query will be chunked, but this is not fully implemented and will only show the first 30.");
              const chunk = initiativeIds.slice(0, 30);
              return query(collection(firestore, 'initiatives'), where(documentId(), 'in', chunk));
         }
