@@ -20,12 +20,26 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from './ui/button';
-import { useUser as useAuthUser } from '@/firebase';
+import { useUser as useAuthUser, useAuth } from '@/firebase';
 import { useUser } from '@/lib/data';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 export function UserNav() {
     const { user: authUser, isUserLoading: isAuthUserLoading } = useAuthUser();
     const { data: currentUser, isLoading: isCurrentUserLoading } = useUser(authUser?.uid);
+    const auth = useAuth();
+    const router = useRouter();
+
+    const handleLogout = async () => {
+        if (auth) {
+            await signOut(auth);
+            // The redirect will be handled by the layout component's effect
+            // but we can push to login to be safe.
+            router.push('/login');
+        }
+    };
+
 
     // Wait until both authentication and user profile data are loaded.
     if (isAuthUserLoading || isCurrentUserLoading) {
@@ -33,7 +47,7 @@ export function UserNav() {
       return null;
     }
 
-    if (!currentUser) return null;
+    if (!currentUser || !auth) return null;
 
   return (
     <DropdownMenu>
@@ -82,12 +96,10 @@ export function UserNav() {
           <span>Support</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/login">
-            <LogOut className="mr-2 h-4 w-4" />
-            <span>Log out</span>
-            <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
-          </Link>
+        <DropdownMenuItem onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Log out</span>
+          <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
