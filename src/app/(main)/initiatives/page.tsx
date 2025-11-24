@@ -31,8 +31,8 @@ const RAG_MAP: Record<RAGStatus, string> = {
 
 export default function InitiativesPage() {
     const searchParams = useSearchParams();
-    const { data: initiativesData } = useInitiatives();
-    const { data: usersData } = useUsers();
+    const { data: initiativesData, isLoading: isLoadingInitiatives } = useInitiatives();
+    const { data: usersData, isLoading: isLoadingUsers } = useUsers();
     const { user: authUser } = useAuthUser();
     const { toast } = useToast();
     const firestore = useFirestore();
@@ -61,22 +61,13 @@ export default function InitiativesPage() {
     }, [allInitiatives]);
     
     const filteredInitiatives = useMemo(() => {
-        if (!authUser) return [];
-        const currentUser = userMap[authUser.uid];
-        const isAdmin = currentUser?.role === 'Admin';
-
         return (allInitiatives || []).filter(initiative => {
-            const isMember = initiative.leadIds.includes(authUser.uid) || initiative.teamMemberIds.includes(authUser.uid);
-            if (!isAdmin && !isMember) {
-                return false;
-            }
-
             const nameMatch = initiative.name.toLowerCase().includes(searchTerm.toLowerCase());
             const themeMatch = selectedTheme === 'all' || initiative.category === selectedTheme;
             const statusMatch = selectedStatus === 'all' || initiative.status === selectedStatus;
             return nameMatch && themeMatch && statusMatch;
         });
-    }, [allInitiatives, searchTerm, selectedTheme, selectedStatus, authUser, userMap]);
+    }, [allInitiatives, searchTerm, selectedTheme, selectedStatus]);
 
     const onInitiativeCreate = async (values: any) => {
         if (!firestore || !authUser) return;
@@ -97,6 +88,17 @@ export default function InitiativesPage() {
             toast({ title: "Error", description: "Failed to create initiative.", variant: "destructive" });
         }
     };
+    
+    if (isLoadingInitiatives || isLoadingUsers) {
+        return (
+            <>
+                <Header />
+                <main className="flex-1 flex items-center justify-center p-4">
+                  <div className="rounded-md border bg-card px-6 py-3 text-lg font-semibold shadow-sm">Loading...</div>
+                </main>
+            </>
+        )
+    }
 
     return (
         <>
@@ -112,8 +114,8 @@ export default function InitiativesPage() {
                 
                 <Card>
                     <CardHeader>
-                        <CardTitle>All Initiatives</CardTitle>
-                        <CardDescription>Browse and manage all strategic initiatives.</CardDescription>
+                        <CardTitle>Your Initiatives</CardTitle>
+                        <CardDescription>Browse and manage strategic initiatives you are part of.</CardDescription>
                         <div className="mt-4 flex flex-wrap items-center gap-2">
                             <Input 
                                 placeholder="Search by name..." 

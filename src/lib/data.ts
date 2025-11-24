@@ -40,7 +40,7 @@ export const useInitiatives = () => {
 
     useEffect(() => {
         if (isAuthUserLoading || !firestore || !authUser) {
-            // Keep loading if auth state is not resolved
+            // Keep loading if auth state is not resolved yet
             if (isAuthUserLoading) {
               setInitiatives({ data: null, isLoading: true, error: null });
             }
@@ -56,10 +56,12 @@ export const useInitiatives = () => {
                 const currentUser = userDocSnap.exists() ? userDocSnap.data() as User : null;
 
                 if (!currentUser) {
-                    throw new Error("Could not find current user's profile.");
+                    // This can happen briefly if the user profile is not created yet.
+                    // We'll treat as non-admin and queries will return empty.
+                    console.warn("Could not find current user's profile. Assuming non-admin role.");
                 }
 
-                if (currentUser.role === 'Admin') {
+                if (currentUser?.role === 'Admin') {
                     // Admins fetch all initiatives
                     const initiativesQuery = query(collection(firestore, 'initiatives'));
                     const snapshot = await getDocs(initiativesQuery);
