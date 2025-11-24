@@ -5,8 +5,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useInitiatives, useTasksForUser, useUser } from "@/lib/data";
-import { Initiative, RAGStatus, Task } from "@/lib/types";
+import { useInitiatives, useUser } from "@/lib/data";
+import { Initiative, RAGStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Building, ChevronLeft, Mail, Phone } from "lucide-react";
 import Link from "next/link";
@@ -25,7 +25,6 @@ export default function PersonDetailPage() {
     
     const { data: user, isLoading: isLoadingUser } = useUser(id);
     const { data: allInitiatives, isLoading: isLoadingInitiatives } = useInitiatives();
-    const { data: tasks, isLoading: isLoadingTasks } = useTasksForUser(id);
 
     const userInitiatives = useMemo(() => {
         if (!allInitiatives || !user) return [];
@@ -34,7 +33,7 @@ export default function PersonDetailPage() {
         );
     }, [allInitiatives, user]);
 
-    if (isLoadingUser || isLoadingInitiatives || isLoadingTasks) {
+    if (isLoadingUser || isLoadingInitiatives) {
         return (
              <>
                 <Header />
@@ -115,18 +114,6 @@ export default function PersonDetailPage() {
                                 ))}
                             </CardContent>
                         </Card>
-                         <Card>
-                            <CardHeader>
-                                <CardTitle>Assigned Tasks ({tasks?.length || 0})</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <ul className="space-y-3">
-                                {tasks?.map(task => (
-                                    <TaskItem key={task.id} task={task} />
-                                ))}
-                                </ul>
-                            </CardContent>
-                        </Card>
                     </div>
                 </div>
             </main>
@@ -147,18 +134,5 @@ function InitiativeCard({ initiative }: { initiative: Initiative }) {
                 <span>{initiative.progress}%</span>
             </div>
         </Link>
-    )
-}
-
-
-function TaskItem({ task }: { task: Task }) {
-    return (
-        <li className="flex items-center justify-between rounded-md border p-3">
-            <div>
-                <p className="font-medium">{task.title}</p>
-                <p className="text-sm text-muted-foreground">Due: {new Date(task.dueDate).toLocaleDateString()}</p>
-            </div>
-             <Badge variant={task.status === 'Completed' ? 'default' : 'outline'}>{task.status}</Badge>
-        </li>
     )
 }

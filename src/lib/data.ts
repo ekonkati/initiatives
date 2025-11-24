@@ -76,16 +76,6 @@ export const useAttachmentsForInitiative = (initiativeId: string | undefined) =>
     return useCollection<Attachment>(q);
 }
 
-export const useTasksForUser = (userId: string | undefined) => {
-    const firestore = useFirestore();
-    const { user } = useAuthUser();
-    const tasksQuery = useMemoFirebase(() => {
-        if (!firestore || !userId || !user) return null;
-        return query(collectionGroup(firestore, 'tasks'), where('ownerId', '==', userId));
-    }, [firestore, userId, user]);
-    return useCollection<Task>(tasksQuery);
-};
-
 export const useInitiativeRatings = (initiativeId: string | undefined) => {
     const firestore = useFirestore();
     const { user } = useAuthUser();
