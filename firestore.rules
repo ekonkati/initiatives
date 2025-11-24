@@ -34,7 +34,7 @@ service cloud.firestore {
     // Restrict updates to the user themselves or an admin.
     match /users/{userId} {
       allow read: if request.auth.uid != null;
-      allow update, create: if request.auth.uid == userId || isAdmin();
+      allow create, update: if request.auth.uid == userId || isAdmin();
     }
 
     // Allow any authenticated user to read master data like departments and designations.
@@ -64,7 +64,7 @@ service cloud.firestore {
       // Attachments subcollection
       match /attachments/{attachmentId} {
         allow read, list, create, delete: if isInitiativeMember(initiativeId);
-        allow write: if isInitiativeMember(initiativeId) && request.auth.uid == resource.data.uploadedBy;
+        allow update: if isInitiativeMember(initiativeId) && request.auth.uid == resource.data.uploadedBy;
       }
     }
     
