@@ -1,7 +1,7 @@
 
 'use client'
 
-import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError, collectionGroup, getDocs, getDoc } from 'firebase/firestore';
+import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError, collectionGroup, getDocs, getDoc, or } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useUser as useAuthUser } from '@/firebase';
 import { useCollection, useDoc } from '@/firebase';
 import { type User, type Initiative, type Task, type DailyCheckin, type InitiativeRating, type UserRating, type Department, type Designation, type Attachment } from './types';
@@ -36,70 +36,30 @@ export const useUser = (id: string | undefined) => {
 export const useInitiatives = () => {
     const firestore = useFirestore();
     const { user: authUser, isUserLoading: isAuthUserLoading } = useAuthUser();
-    const [initiatives, setInitiatives] = useState<{ data: Initiative[] | null, isLoading: boolean, error: Error | null }>({ data: null, isLoading: true, error: null });
+    const { data: currentUser, isLoading: isCurrentUserLoading } = useUser(authUser?.uid);
 
-    useEffect(() => {
-        if (isAuthUserLoading || !firestore || !authUser) {
-            // Keep loading if auth state is not resolved yet
-            if (isAuthUserLoading) {
-              setInitiatives({ data: null, isLoading: true, error: null });
-            }
-            return;
+    const q = useMemoFirebase(() => {
+        if (isAuthUserLoading || isCurrentUserLoading || !firestore || !authUser) {
+            return null;
         }
 
-        const fetchInitiatives = async () => {
-            setInitiatives({ data: null, isLoading: true, error: null });
-            try {
-                // Fetch the current user's profile to check their role
-                const userDocRef = doc(firestore, 'users', authUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                const currentUser = userDocSnap.exists() ? userDocSnap.data() as User : null;
+        // Admins can see all initiatives
+        if (currentUser?.role === 'Admin') {
+            return query(collection(firestore, 'initiatives'));
+        }
 
-                if (!currentUser) {
-                    // This can happen briefly if the user profile is not created yet.
-                    // We'll treat as non-admin and queries will return empty.
-                    console.warn("Could not find current user's profile. Assuming non-admin role.");
-                }
+        // Non-admins only see initiatives they are part of.
+        // This requires an OR query.
+        return query(
+            collection(firestore, 'initiatives'),
+            or(
+                where('leadIds', 'array-contains', authUser.uid),
+                where('teamMemberIds', 'array-contains', authUser.uid)
+            )
+        );
+    }, [firestore, authUser, isAuthUserLoading, currentUser, isCurrentUserLoading]);
 
-                if (currentUser?.role === 'Admin') {
-                    // Admins fetch all initiatives
-                    const initiativesQuery = query(collection(firestore, 'initiatives'));
-                    const snapshot = await getDocs(initiativesQuery);
-                    const allInitiatives = snapshot.docs.map(doc => ({ ...doc.data() as Initiative, id: doc.id }));
-                    setInitiatives({ data: allInitiatives, isLoading: false, error: null });
-                } else {
-                    // Non-admins fetch initiatives they are part of
-                    const leadQuery = query(collection(firestore, 'initiatives'), where('leadIds', 'array-contains', authUser.uid));
-                    const memberQuery = query(collection(firestore, 'initiatives'), where('teamMemberIds', 'array-contains', authUser.uid));
-
-                    const [leadSnapshot, memberSnapshot] = await Promise.all([
-                        getDocs(leadQuery),
-                        getDocs(memberQuery)
-                    ]);
-
-                    const initiativesMap = new Map<string, Initiative>();
-                    leadSnapshot.forEach(doc => {
-                        initiativesMap.set(doc.id, { ...doc.data() as Initiative, id: doc.id });
-                    });
-                    memberSnapshot.forEach(doc => {
-                        if (!initiativesMap.has(doc.id)) {
-                            initiativesMap.set(doc.id, { ...doc.data() as Initiative, id: doc.id });
-                        }
-                    });
-
-                    setInitiatives({ data: Array.from(initiativesMap.values()), isLoading: false, error: null });
-                }
-            } catch (e: any) {
-                console.error("Error fetching initiatives: ", e);
-                setInitiatives({ data: null, isLoading: false, error: e });
-            }
-        };
-
-        fetchInitiatives();
-        
-    }, [firestore, authUser, isAuthUserLoading]);
-
-    return initiatives;
+    return useCollection<Initiative>(q);
 };
 
 
