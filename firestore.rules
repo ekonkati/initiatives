@@ -27,20 +27,6 @@ service cloud.firestore {
       return isUserAuthenticated() && (isAdmin() || isLead || isTeamMember);
     }
     
-    // This rule is separate to handle the collection-level query for initiatives.
-    // Admins can list all initiatives.
-    // Other users can list initiatives where their UID is in the leadIds or teamMemberIds.
-    // The client query MUST match this condition.
-    match /initiatives/{initiativeId} {
-        allow read, write: if isInitiativeMember(initiativeId);
-    }
-    
-    // The initiatives collection can be listed if the user is an admin OR
-    // if the query constrains the search to initiatives where the user is a member.
-    match /initiatives/{initiativeId} {
-       allow list: if isAdmin() || (request.query.where.in_ == [['leadIds', 'array-contains', request.auth.uid], ['teamMemberIds', 'array-contains', request.auth.uid]]);
-    }
-
     // --- Rules ---
 
     // USERS
@@ -50,8 +36,17 @@ service cloud.firestore {
       // Users can update their own profile, or an admin can.
       allow write: if isOwner(userId) || isAdmin();
     }
-
-    // DEPARTMENTS & DESIGNATIONS
+    
+    // INITIATIVES
+    // A user can read an initiative doc if they are a member.
+    // This single 'read' rule covers both 'get' and 'list' operations.
+    // For 'list' to succeed, the client query MUST be constrained to only request
+    // documents that the user is a member of (which useInitiatives hook now does).
+    match /initiatives/{initiativeId} {
+        allow read, write: if isInitiativeMember(initiativeId);
+    }
+    
+    // DEPARTMENTS & DESIGNATIONS (Master Data)
     match /departments/{docId} {
       // Any authenticated user can read master data.
       allow read: if isUserAuthenticated();
@@ -65,14 +60,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // INITIATIVES & SUBCOLLECTIONS
-    match /initiatives/{initiativeId} {
-      
-      // TASKS, ATTACHMENTS, and other subcollections
-      // Inherit the parent initiative's membership check for all operations.
-      match /{allChildren=**} {
-        allow read, write: if isInitiativeMember(initiativeId);
-      }
+    // INITIATIVE SUBCOLLECTIONS
+    // This rule allows members of an initiative to access all related sub-collection documents.
+    match /initiatives/{initiativeId}/{allChildren=**} {
+      allow read, write: if isInitiativeMember(initiativeId);
     }
   }
 }
