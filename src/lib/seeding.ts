@@ -175,27 +175,6 @@ const designationsRaw = [
 ];
 
 
-async function deleteCollection(db: Firestore, collectionPath: string) {
-    const q = query(collection(db, collectionPath));
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.empty) {
-        console.log(`- Collection '${collectionPath}' is already empty.`);
-        return;
-    }
-
-    const batchSize = 500;
-    for (let i = 0; i < snapshot.docs.length; i += batchSize) {
-        const batch = writeBatch(db);
-        snapshot.docs.slice(i, i + batchSize).forEach(doc => {
-            batch.delete(doc.ref);
-        });
-        await batch.commit();
-    }
-
-    console.log(`- Successfully deleted ${snapshot.size} documents from '${collectionPath}'.`);
-}
-
 async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: string): Promise<AuthUser | null> {
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password || 'password123');
@@ -225,21 +204,8 @@ async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: st
 export async function runSeed(db: Firestore, auth: Auth) {
     console.log('--- Firebase Seeding Script ---');
     
-    console.log('STEP 1: Deleting previous non-user data...');
-    try {
-        await Promise.all([
-            deleteCollection(db, 'initiatives'),
-            deleteCollection(db, 'departments'),
-            deleteCollection(db, 'designations'),
-            deleteCollection(db, 'users')
-        ]);
-    } catch (error) {
-        console.error('Halting seed script due to error during data deletion:', error);
-        throw error; // Propagate error up
-    }
-    console.log('Previous data deleted successfully.');
-
-
+    console.log('STEP 1: Seeding Firestore database...');
+    const batch = writeBatch(db);
     const userIdMap: Record<string, string> = {};
     const adminUserRaw = usersRaw.find(u => u.role === 'Admin');
 
@@ -277,8 +243,6 @@ export async function runSeed(db: Firestore, auth: Auth) {
         return;
     }
 
-    console.log('\nSTEP 3: Seeding Firestore database...');
-    const batch = writeBatch(db);
     const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
     
     // Add Users
@@ -297,7 +261,7 @@ export async function runSeed(db: Firestore, auth: Auth) {
                     email: userRaw.email,
                     role: userRaw.role as User['role'],
                     department: userRaw.department || 'Unassigned',
-                    designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
+                    designation: userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member',
                     active: true,
                     photoUrl: `https://picsum.photos/seed/${authUser.uid}/40/40`,
                 };
@@ -370,5 +334,3 @@ export async function runSeed(db: Firestore, auth: Auth) {
 
     console.log('\n--- Seeding Complete! ---');
 }
-
-    

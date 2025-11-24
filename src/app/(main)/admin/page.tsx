@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUsers, useInitiatives, useDepartments, useDesignations } from "@/lib/data";
 import { Department, Designation, User } from "@/lib/types";
-import { Database, MoreHorizontal, PlusCircle, Trash2 } from "lucide-react";
+import { Database, MoreHorizontal, PlusCircle, Trash2, ShieldX } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { collection, doc, setDoc, updateDoc, deleteDoc, addDoc, writeBatch } from "firebase/firestore";
+import { collection, doc, setDoc, updateDoc, deleteDoc, addDoc, writeBatch, getDocs, query } from "firebase/firestore";
 import { useFirestore, useAuth } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { runSeed } from "@/lib/seeding";
@@ -67,8 +67,8 @@ export default function AdminPage() {
     const [isDesigFormOpen, setIsDesigFormOpen] = useState(false);
     const [editingDesig, setEditingDesig] = useState<Designation | null>(null);
 
-    const [isSeeding, setIsSeeding] = useState(false);
-    const [seedConfirmation, setSeedConfirmation] = useState("");
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [clearConfirmation, setClearConfirmation] = useState("");
     
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
@@ -111,8 +111,6 @@ export default function AdminPage() {
             });
             setSelectedUsers([]);
         } catch (error) {
-            // This catch block might be useful for actual commit errors in the future,
-            // but for now, we'll optimistically report success.
             console.error("Error committing user deletion batch:", error);
             toast({
                 title: "Error",
@@ -163,8 +161,40 @@ export default function AdminPage() {
         await deleteDoc(doc(firestore, collectionName, item.id));
     };
 
+    const handleClearData = async () => {
+        if (!firestore) return;
+        setIsProcessing(true);
+        try {
+            const collectionsToDelete = ['initiatives', 'departments', 'designations'];
+            const batch = writeBatch(firestore);
+
+            for (const collectionName of collectionsToDelete) {
+                const q = query(collection(firestore, collectionName));
+                const snapshot = await getDocs(q);
+                snapshot.docs.forEach(doc => batch.delete(doc.ref));
+            }
+            
+            await batch.commit();
+            toast({
+                title: "Success",
+                description: "Initiatives, departments, and designations cleared.",
+            });
+
+        } catch (error) {
+             console.error("Clearing data failed:", error);
+            toast({
+                title: "Error",
+                description: "Failed to clear data. Check console for details.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsProcessing(false);
+            setClearConfirmation("");
+        }
+    };
+
     const handleSeedDatabase = async () => {
-        setIsSeeding(true);
+        setIsProcessing(true);
         try {
             if (!auth || !firestore) {
                 throw new Error("Firebase services are not available.");
@@ -182,8 +212,7 @@ export default function AdminPage() {
                 variant: "destructive",
             });
         } finally {
-            setIsSeeding(false);
-            setSeedConfirmation("");
+            setIsProcessing(false);
         }
     }
 
@@ -435,47 +464,60 @@ export default function AdminPage() {
                                 <CardTitle>System Actions</CardTitle>
                                 <CardDescription>Perform system-level operations. Use with caution.</CardDescription>
                             </CardHeader>
-                            <CardContent>
-                                 <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="destructive" disabled={isSeeding}>
-                                            <Database className="mr-2 h-4 w-4" /> 
-                                            {isSeeding ? "Seeding..." : "Seed Database"}
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                This action will permanently delete all existing data (users, initiatives, etc.) and replace it with the default sample data. This cannot be undone.
-                                                <br /><br />
-                                                To confirm, please type <strong>DELETE</strong> into the box below.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <div className="grid gap-2">
-                                            <Label htmlFor="delete-confirm" className="sr-only">Confirm Deletion</Label>
-                                            <Input
-                                                id="delete-confirm"
-                                                type="text"
-                                                placeholder="DELETE"
-                                                value={seedConfirmation}
-                                                onChange={(e) => setSeedConfirmation(e.target.value)}
-                                            />
-                                        </div>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel onClick={() => setSeedConfirmation("")}>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction 
-                                                onClick={handleSeedDatabase}
-                                                disabled={seedConfirmation !== 'DELETE' || isSeeding}
-                                            >
-                                                {isSeeding ? "Deleting and Seeding..." : "Continue"}
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                                <p className="text-sm text-muted-foreground mt-2">
-                                    This will wipe all current data and load the initial sample data set.
-                                </p>
+                            <CardContent className="space-y-4">
+                                <div className="flex items-center justify-between rounded-lg border p-4">
+                                    <div>
+                                        <h3 className="font-semibold">Seed Database</h3>
+                                        <p className="text-sm text-muted-foreground">Adds users and initiatives from the built-in dataset. Does not delete existing data.</p>
+                                    </div>
+                                    <Button onClick={handleSeedDatabase} disabled={isProcessing}>
+                                        <Database className="mr-2 h-4 w-4" /> 
+                                        {isProcessing ? "Seeding..." : "Seed Data"}
+                                    </Button>
+                                </div>
+                                <div className="flex items-center justify-between rounded-lg border border-destructive/50 p-4">
+                                    <div>
+                                        <h3 className="font-semibold text-destructive">Clear Data</h3>
+                                        <p className="text-sm text-muted-foreground">Permanently delete all initiatives, departments, and designations. User data is not affected.</p>
+                                    </div>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="destructive" disabled={isProcessing}>
+                                                <ShieldX className="mr-2 h-4 w-4" /> 
+                                                Clear Data
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    This will delete all <span className="font-bold">initiatives, departments, and designations</span>. This action cannot be undone. User data will not be affected.
+                                                    <br /><br />
+                                                    To confirm, please type <strong>CLEAR</strong> into the box below.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <div className="grid gap-2">
+                                                <Label htmlFor="delete-confirm" className="sr-only">Confirm Deletion</Label>
+                                                <Input
+                                                    id="delete-confirm"
+                                                    type="text"
+                                                    placeholder="CLEAR"
+                                                    value={clearConfirmation}
+                                                    onChange={(e) => setClearConfirmation(e.target.value)}
+                                                />
+                                            </div>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel onClick={() => setClearConfirmation("")}>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction 
+                                                    onClick={handleClearData}
+                                                    disabled={clearConfirmation !== 'CLEAR' || isProcessing}
+                                                >
+                                                    {isProcessing ? "Clearing..." : "Continue"}
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
                             </CardContent>
                         </Card>
                     </TabsContent>
