@@ -53,7 +53,7 @@ export default function AdminPage() {
     const { data: departmentsData } = useDepartments();
     const { data: designationsData } = useDesignations();
 
-    const users = usersData || [];
+    const allUsers = usersData || [];
     const departments = departmentsData || [];
     const designations = designationsData || [];
     
@@ -82,56 +82,21 @@ export default function AdminPage() {
         return [...new Set(initiativesData.map(i => i.category))];
     }, [initiativesData]);
 
+    const usersInInitiatives = useMemo(() => {
+        if (!allUsers.length || !initiativesData || !initiativesData.length) return [];
+        const userIdsInInitiatives = new Set<string>();
+        initiativesData.forEach(i => {
+            i.leadIds.forEach(id => userIdsInInitiatives.add(id));
+            i.teamMemberIds.forEach(id => userIdsInInitiatives.add(id));
+        });
+        return allUsers.filter(u => userIdsInInitiatives.has(u.id));
+    }, [allUsers, initiativesData]);
+
     // User Management Handlers
     const handleEditUser = (user: User) => {
         setEditingUser(user);
         setIsUserFormOpen(true);
     };
-
-    const handleDeactivateUser = async (user: User) => {
-        if (!firestore) return;
-        const userRef = doc(firestore, 'users', user.id);
-        await updateDoc(userRef, { active: false });
-        toast({
-            title: "User Deactivated",
-            description: `${user.name} has been deactivated.`,
-        });
-    };
-    
-    const handleDeleteSelectedUsers = async () => {
-        if (!firestore || selectedUsers.length === 0) return;
-
-        const batch = writeBatch(firestore);
-        selectedUsers.forEach(userId => {
-            const userRef = doc(firestore, 'users', userId);
-            batch.delete(userRef);
-        });
-
-        try {
-            await batch.commit();
-            toast({
-                title: "Users Removed",
-                description: `${selectedUsers.length} user(s) have been removed. The list will update shortly.`,
-            });
-            setSelectedUsers([]);
-        } catch (error) {
-            console.error("Error committing user deletion batch:", error);
-            toast({
-                title: "Error",
-                description: "An error occurred while trying to remove users.",
-                variant: "destructive",
-            });
-        }
-    };
-    
-    const handleSelectAllUsers = (checked: boolean | 'indeterminate') => {
-        if (checked === true) {
-            setSelectedUsers(users.map(u => u.id));
-        } else {
-            setSelectedUsers([]);
-        }
-    };
-
 
     const onUserFormSubmit = async (values: UserFormValues) => {
         if (!firestore) return;
@@ -249,42 +214,14 @@ export default function AdminPage() {
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <CardTitle>User Management</CardTitle>
-                                            <CardDescription>Edit, remove, or deactivate users from the system.</CardDescription>
+                                            <CardDescription>Edit user profiles for team members involved in initiatives.</CardDescription>
                                         </div>
-                                        {selectedUsers.length > 0 && (
-                                             <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="destructive">
-                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                        Delete Selected ({selectedUsers.length})
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            This will permanently delete the selected user profiles from Firestore. This action cannot be undone. Authentication accounts will not be deleted.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={handleDeleteSelectedUsers}>Continue</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        )}
                                     </div>
                                 </CardHeader>
                                 <CardContent>
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead className="w-[40px]">
-                                                    <Checkbox
-                                                        checked={users.length > 0 && selectedUsers.length === users.length}
-                                                        onCheckedChange={handleSelectAllUsers}
-                                                    />
-                                                </TableHead>
                                                 <TableHead>Name</TableHead>
                                                 <TableHead>Email</TableHead>
                                                 <TableHead>Role</TableHead>
@@ -294,61 +231,25 @@ export default function AdminPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {isLoadingUsers ? (
+                                            {isLoadingUsers || !usersInInitiatives ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={7}>
+                                                    <TableCell colSpan={6}>
                                                         <div className="flex justify-center p-8">
                                                           <div className="rounded-md border bg-card px-6 py-3 text-lg font-semibold shadow-sm">Loading...</div>
                                                         </div>
                                                     </TableCell>
                                                 </TableRow>
-                                            ) : users.map(user => (
-                                                <TableRow key={user.id} data-state={selectedUsers.includes(user.id) && "selected"}>
-                                                    <TableCell>
-                                                         <Checkbox
-                                                            checked={selectedUsers.includes(user.id)}
-                                                            onCheckedChange={(checked) => {
-                                                                setSelectedUsers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id));
-                                                            }}
-                                                        />
-                                                    </TableCell>
+                                            ) : usersInInitiatives.map(user => (
+                                                <TableRow key={user.id}>
                                                     <TableCell className="font-medium">{user.name}</TableCell>
                                                     <TableCell>{user.email}</TableCell>
                                                     <TableCell>{user.role}</TableCell>
                                                     <TableCell>{user.department}</TableCell>
                                                     <TableCell>{user.active ? "Active" : "Inactive"}</TableCell>
                                                     <TableCell className="text-right">
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon">
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent>
-                                                                <DropdownMenuItem onClick={() => handleEditUser(user)}>Edit</DropdownMenuItem>
-                                                                {user.active && (
-                                                                <AlertDialog>
-                                                                    <AlertDialogTrigger asChild>
-                                                                        <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-red-500 hover:text-red-600">
-                                                                            Deactivate
-                                                                        </div>
-                                                                    </AlertDialogTrigger>
-                                                                    <AlertDialogContent>
-                                                                        <AlertDialogHeader>
-                                                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                                            <AlertDialogDescription>
-                                                                                This will mark the user as inactive. They will not be able to log in.
-                                                                            </AlertDialogDescription>
-                                                                        </AlertDialogHeader>
-                                                                        <AlertDialogFooter>
-                                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                            <AlertDialogAction onClick={() => handleDeactivateUser(user)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Deactivate</AlertDialogAction>
-                                                                        </AlertDialogFooter>
-                                                                    </AlertDialogContent>
-                                                                </AlertDialog>
-                                                                )}
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                        <Button variant="outline" size="sm" onClick={() => handleEditUser(user)}>
+                                                            Edit
+                                                        </Button>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -748,6 +649,3 @@ function MasterDataFormDialog({ item, title, description, onSubmit, onClose }: M
         </DialogContent>
     );
 }
-
-
-    

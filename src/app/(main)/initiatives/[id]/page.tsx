@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AppShell } from "@/components/app-shell";
@@ -86,6 +87,17 @@ export default function InitiativeDetailPage() {
             toast({ title: "Error", description: "Failed to update initiative.", variant: "destructive" });
         }
     };
+
+    const isUserLead = useMemo(() => {
+        if (!authUser || !initiative) return false;
+        return initiative.leadIds.includes(authUser.uid);
+    }, [authUser, initiative]);
+    
+    const isUserAdmin = useMemo(() => {
+        if (!authUser || !userMap) return false;
+        const currentUser = userMap[authUser.uid];
+        return currentUser?.role === 'Admin';
+    }, [authUser, userMap]);
 
 
     if (isLoading) {
@@ -226,6 +238,8 @@ export default function InitiativeDetailPage() {
                             users={users}
                             userMap={userMap}
                             isMember={isMember ?? false}
+                            isLead={isUserLead}
+                            isAdmin={isUserAdmin}
                         />
                     </TabsContent>
 
@@ -325,9 +339,11 @@ interface TaskManagerProps {
     users: User[];
     userMap: Record<string, User>;
     isMember: boolean;
+    isLead: boolean;
+    isAdmin: boolean;
 }
 
-function TaskManager({ initiativeId, tasks, users, userMap, isMember }: TaskManagerProps) {
+function TaskManager({ initiativeId, tasks, users, userMap, isMember, isLead, isAdmin }: TaskManagerProps) {
     const [isTaskFormOpen, setTaskFormOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const firestore = useFirestore();
@@ -436,7 +452,9 @@ function TaskManager({ initiativeId, tasks, users, userMap, isMember }: TaskMana
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent>
                                                     <DropdownMenuItem onClick={() => handleEditTask(task)}>Edit</DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-red-500" onClick={() => handleDeleteTask(task.id)}>Delete</DropdownMenuItem>
+                                                    {(isLead || isAdmin) && (
+                                                        <DropdownMenuItem className="text-red-500" onClick={() => handleDeleteTask(task.id)}>Delete</DropdownMenuItem>
+                                                    )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         )}

@@ -44,7 +44,7 @@ export default function InitiativesPage() {
     const [selectedTheme, setSelectedTheme] = useState(searchParams.get('category') || 'all');
     const [selectedStatus, setSelectedStatus] = useState(searchParams.get('status') || 'all');
 
-    const initiatives = initiativesData || [];
+    const allInitiatives = initiativesData || [];
     const users = usersData || [];
 
     const userMap = useMemo(() => {
@@ -56,18 +56,27 @@ export default function InitiativesPage() {
     }, [users]);
     
     const themes = useMemo(() => {
-        if (!initiatives) return [];
-        return [...new Set(initiatives.map(i => i.category))];
-    }, [initiatives]);
+        if (!allInitiatives) return [];
+        return [...new Set(allInitiatives.map(i => i.category))];
+    }, [allInitiatives]);
     
     const filteredInitiatives = useMemo(() => {
-        return (initiatives || []).filter(initiative => {
+        if (!authUser) return [];
+        const currentUser = userMap[authUser.uid];
+        const isAdmin = currentUser?.role === 'Admin';
+
+        return (allInitiatives || []).filter(initiative => {
+            const isMember = initiative.leadIds.includes(authUser.uid) || initiative.teamMemberIds.includes(authUser.uid);
+            if (!isAdmin && !isMember) {
+                return false;
+            }
+
             const nameMatch = initiative.name.toLowerCase().includes(searchTerm.toLowerCase());
             const themeMatch = selectedTheme === 'all' || initiative.category === selectedTheme;
             const statusMatch = selectedStatus === 'all' || initiative.status === selectedStatus;
             return nameMatch && themeMatch && statusMatch;
         });
-    }, [initiatives, searchTerm, selectedTheme, selectedStatus]);
+    }, [allInitiatives, searchTerm, selectedTheme, selectedStatus, authUser, userMap]);
 
     const onInitiativeCreate = async (values: any) => {
         if (!firestore || !authUser) return;
@@ -205,7 +214,7 @@ export default function InitiativesPage() {
                         onOpenChange={setCreateFormOpen}
                         onSubmit={onInitiativeCreate}
                         users={users}
-                        allInitiatives={initiatives}
+                        allInitiatives={allInitiatives}
                     />
                 )}
             </main>
