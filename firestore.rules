@@ -23,8 +23,9 @@ service cloud.firestore {
 
     function isInitiativeMember(initiativeId) {
       let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
-      let isLead = 'leadIds' in initiativeDoc.data && request.auth.uid in initiativeDoc.data.leadIds;
-      let isTeamMember = 'teamMemberIds' in initiativeDoc.data && request.auth.uid in initiativeDoc.data.teamMemberIds;
+      // Defensive checks: ensure the list exists before using the 'in' operator.
+      let isLead = 'leadIds' in initiativeDoc.data && initiativeDoc.data.leadIds is list && request.auth.uid in initiativeDoc.data.leadIds;
+      let isTeamMember = 'teamMemberIds' in initiativeDoc.data && initiativeDoc.data.teamMemberIds is list && request.auth.uid in initiativeDoc.data.teamMemberIds;
       
       return isUserAuthenticated() && (isAdmin() || isLead || isTeamMember);
     }
