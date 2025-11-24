@@ -9,13 +9,8 @@ import { getStorage } from 'firebase/storage';
 
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
-export function initializeFirebase() {
-  if (!getApps().length) {
-    // Important! initializeApp() is called without any arguments because Firebase App Hosting
-    // integrates with the initializeApp() function to provide the environment variables needed to
-    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
-    // without arguments.
-    let firebaseApp;
+let firebaseApp: FirebaseApp;
+if (!getApps().length) {
     try {
       // Attempt to initialize via Firebase App Hosting environment variables
       firebaseApp = initializeApp();
@@ -27,22 +22,24 @@ export function initializeFirebase() {
       }
       firebaseApp = initializeApp(firebaseConfig);
     }
-
-    return getSdks(firebaseApp);
-  }
-
-  // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
+} else {
+    firebaseApp = getApp();
 }
 
-export function getSdks(firebaseApp: FirebaseApp) {
-  return {
-    firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp),
-    storage: getStorage(firebaseApp),
-  };
+const auth = getAuth(firebaseApp);
+const firestore = getFirestore(firebaseApp);
+const storage = getStorage(firebaseApp);
+
+
+export function initializeFirebase() {
+    return {
+        firebaseApp,
+        auth,
+        firestore,
+        storage,
+    };
 }
+
 
 export * from './provider';
 export * from './client-provider';
