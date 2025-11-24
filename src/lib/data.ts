@@ -54,12 +54,12 @@ export const useInitiatives = () => {
             if (docSnap.exists()) {
                 setUserRole(docSnap.data().role);
             } else {
-                setUserRole('Team Member'); // Default role if profile doesn't exist
+                setUserRole(null); // No profile, so no special role
             }
             setIsRoleLoading(false);
-        }, () => {
-            // Error case, default to non-admin
-            setUserRole('Team Member');
+        }, (error) => {
+            console.error("Error fetching user role:", error);
+            setUserRole(null); // On error, assume no special role
             setIsRoleLoading(false);
         });
 
@@ -68,16 +68,18 @@ export const useInitiatives = () => {
     }, [authUser, firestore, isUserLoading]);
 
     const q = useMemoFirebase(() => {
-        if (isRoleLoading || !firestore || !authUser) {
-            return null; // Wait until we know the user's role
+        // Wait until role loading is complete and we have an authenticated user.
+        if (isRoleLoading || !authUser || !firestore) {
+            return null;
         }
 
         if (userRole === 'Admin') {
-            // Admin can see all initiatives.
+            // Admin role can see all initiatives.
             return query(collection(firestore, 'initiatives'));
         } else {
-            // Regular users see only their own initiatives.
-             return query(
+            // Regular users see only initiatives where they are a lead or a member.
+            // This query is now correctly constructed after the role has been determined.
+            return query(
                 collection(firestore, 'initiatives'),
                 or(
                     where('leadIds', 'array-contains', authUser.uid),
@@ -87,7 +89,12 @@ export const useInitiatives = () => {
         }
     }, [firestore, authUser, userRole, isRoleLoading]);
 
-    return useCollection<Initiative>(q);
+    const { data, isLoading, error } = useCollection<Initiative>(q);
+
+    // Combine loading states: we are loading if auth is loading, role is loading, or the collection hook is loading.
+    const combinedIsLoading = isUserLoading || isRoleLoading || isLoading;
+
+    return { data, isLoading: combinedIsLoading, error };
 };
 
 
