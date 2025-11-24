@@ -26,6 +26,7 @@ import { runSeed, clearData } from "@/lib/seeding";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 
 
 // Schemas
@@ -70,6 +71,7 @@ export default function AdminPage() {
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [clearConfirmation, setClearConfirmation] = useState("");
+    const [seedingProgress, setSeedingProgress] = useState({ message: "", percentage: 0 });
     
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
@@ -195,11 +197,12 @@ export default function AdminPage() {
 
     const handleSeedDatabase = async () => {
         setIsProcessing(true);
+        setSeedingProgress({ message: "Starting...", percentage: 0 });
         try {
             if (!auth || !firestore) {
                 throw new Error("Firebase services are not available.");
             }
-            await runSeed(firestore, auth);
+            await runSeed(firestore, auth, (progress) => setSeedingProgress(progress));
             toast({
                 title: "Success",
                 description: "Database has been seeded successfully.",
@@ -213,6 +216,7 @@ export default function AdminPage() {
             });
         } finally {
             setIsProcessing(false);
+            setSeedingProgress({ message: "", percentage: 0 });
         }
     }
 
@@ -469,6 +473,12 @@ export default function AdminPage() {
                                     <div>
                                         <h3 className="font-semibold">Seed Database</h3>
                                         <p className="text-sm text-muted-foreground">Adds users and initiatives from the built-in dataset. Does not delete existing data.</p>
+                                        {isProcessing && (
+                                            <div className="mt-2 w-full max-w-sm">
+                                                <Progress value={seedingProgress.percentage} className="h-2" />
+                                                <p className="text-xs text-muted-foreground mt-1">{seedingProgress.message} ({Math.round(seedingProgress.percentage)}%)</p>
+                                            </div>
+                                        )}
                                     </div>
                                     <Button onClick={handleSeedDatabase} disabled={isProcessing}>
                                         <Database className="mr-2 h-4 w-4" /> 

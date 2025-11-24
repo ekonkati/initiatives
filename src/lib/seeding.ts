@@ -89,10 +89,10 @@ const usersRaw = [
     { name: 'CK Lim', email: 'ck.lim@teeinfra.com', role: 'Team Member', department: 'Growth', designation: 'Member' },
     { name: 'Satya', email: 'satya.a@resustainability.com', role: 'Initiative Lead', department: 'M&A', designation: 'Lead' },
     { name: 'Avinash', email: 'avinash.sarlana@resustainability.com', role: 'Team Member', department: 'Sustainability', designation: 'Member' },
-    { name: 'Samrat', email: 'samrat@resilience.org.in', role: 'Team Member', department: 'ESG', designation: 'Member' },
+    { name 'Samrat', email: 'samrat@resilience.org.in', role: 'Team Member', department: 'ESG', designation: 'Member' },
     { name: 'Sachin', email: 'sachin.watarkar@resustainability.com', role: 'Initiative Lead', department: 'Sales', designation: 'Lead' },
     { name: 'Ranadheer', email: 'ranadheer.reddy@resustainability.com', role: 'Team Member', department: 'Sales', designation: 'Member' },
-    { name: 'Bhavesh', email: 'bhavesh.p@resustainability.com', role: 'Team Member', department: 'Sales', designation: 'Member' },
+    { name 'Bhavesh', email: 'bhavesh.p@resustainability.com', role: 'Team Member', department: 'Sales', designation: 'Member' },
     { name: 'Bobby', email: 'bobbykurien@resustainability.com', role: 'Initiative Lead', department: 'Projects', designation: 'Lead' },
     { name: 'Nasarullah', email: 'nasarullah.mohd@resustainability.com', role: 'Team Member', department: 'Recycling', designation: 'Member' },
     { name: 'Jaimin', email: 'jaimink.shah@resustainability.com', role: 'Team Member', department: 'Growth', designation: 'Member' },
@@ -144,28 +144,29 @@ const initiativesRaw = [
 ];
 
 const departmentsRaw = [
-    { id: 'exec', name: 'Executive' },
-    { id: 'tech', name: 'Technology' },
-    { id: 'mktg', name: 'Marketing' },
-    { id: 'fin', name: 'Finance' },
+    { id: 'executive', name: 'Executive' },
+    { id: 'technology', name: 'Technology' },
+    { id: 'marketing', name: 'Marketing' },
+    { id: 'finance', name: 'Finance' },
     { id: 'legal', name: 'Legal' },
     { id: 'hr', name: 'HR' },
-    { id: 'trans', name: 'Transformation' },
+    { id: 'transformation', name: 'Transformation' },
     { id: 'growth', name: 'Growth' },
-    { id: 'gov', name: 'Governance' },
-    { id: 'ops', name: 'Operations' },
+    { id: 'governance', name: 'Governance' },
+    { id: 'operations', name: 'Operations' },
     { id: 'digital', name: 'Digital' },
-    { id: 'sustain', name: 'Sustainability' },
+    { id: 'sustainability', name: 'Sustainability' },
     { id: 'sales', name: 'Sales' },
-    { id: 'recycle', name: 'Recycling' },
+    { id: 'recycling', name: 'Recycling' },
     { id: 'projects', name: 'Projects' },
     { id: 'scm', name: 'SCM' },
-    { id: 'innov', name: 'Innovation' },
+    { id: 'innovation', name: 'Innovation' },
     { id: 'esg', name: 'ESG' },
     { id: 'ma', name: 'M&A' },
     { id: 'logistics', name: 'Logistics' },
     { id: 'compliance', name: 'Compliance' },
-    { id: 'consult', name: 'Consultancy' },
+    { id: 'consultancy', name: 'Consultancy' },
+    { id: 'strategy', name: 'Strategy' },
 ];
 
 const designationsRaw = [
@@ -174,166 +175,156 @@ const designationsRaw = [
     { id: 'member', name: 'Member' },
 ];
 
+// --- UTILITY FUNCTIONS ---
+type ProgressCallback = (progress: { message: string; percentage: number }) => void;
+
 // Utility function to introduce a delay
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: string): Promise<AuthUser | null> {
     try {
-        // First, try to create the user.
         const userCredential = await createUserWithEmailAndPassword(auth, email, password || 'password123');
-        console.log(`- Auth user CREATED for ${email}`);
         return userCredential.user;
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
-             try {
-                // If the user already exists, try to sign in to get their UID.
-                // This is a workaround and assumes the password is 'password123'.
-                // In a real-world scenario, you might handle this differently.
+            try {
                 const userCredential = await signInWithEmailAndPassword(auth, email, password || 'password123');
-                 console.log(`- Auth user for ${email} already exists. Signing in to retrieve.`);
                 return userCredential.user;
             } catch (signInError: any) {
-                // This can happen if the user exists but the password is not 'password123'.
-                console.warn(`- Could not sign in to existing user ${email}. It might have a different password. Skipping auth creation, but will attempt to find Firestore profile.`);
+                console.warn(`- Could not sign in to existing user ${email}. It might have a different password.`);
                 return null;
             }
-        } else if (error.code === 'auth/too-many-requests') {
-             // Handle rate-limiting by waiting and retrying.
-            console.warn(`- Rate limit hit when creating user ${email}. Will retry in a moment...`);
-            await sleep(2000); // Wait for 2 seconds
-            return createOrRetrieveAuthUser(auth, email, password); // Retry the creation
         }
-        // For other errors during creation.
-        console.error(`- Error processing auth for user ${email}:`, error.message);
-        return null;
+        throw error; // Re-throw other errors
     }
 }
 
-
-export async function runSeed(db: Firestore, auth: Auth) {
-    console.log('--- Firebase Seeding Script ---');
-
-    // --- STEP 1: Process All Users in Batches ---
-    console.log('\nSTEP 1: Processing all users (in batches)...');
-    const userIdMap = new Map<string, string>();
-    const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
-    const batchSize = 10;
-    let usersProcessedCount = 0;
-
-    for (let i = 0; i < uniqueUsers.length; i += batchSize) {
-        const batch = uniqueUsers.slice(i, i + batchSize);
-        console.log(`- Processing user batch ${i / batchSize + 1}...`);
-        
-        const authPromises = batch.map(userRaw => 
-            createOrRetrieveAuthUser(auth, userRaw.email).then(authUser => {
-                if (authUser) {
-                    userIdMap.set(userRaw.email.toLowerCase(), authUser.uid);
-                }
-                return { email: userRaw.email, authUser };
-            })
-        );
-        
-        await Promise.all(authPromises);
-        usersProcessedCount += batch.length;
-        console.log(`- Batch ${i / batchSize + 1} processed. Total users so far: ${usersProcessedCount}`);
+async function processInBatches<T, R>(
+    items: T[], 
+    batchSize: number, 
+    processFn: (item: T) => Promise<R>
+): Promise<(R | null)[]> {
+    const results: (R | null)[] = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        const batchPromises = batch.map(item => processFn(item).catch(e => {
+            console.error(`Error processing item:`, e);
+            return null; // Return null on error to not halt the entire process
+        }));
+        results.push(...await Promise.all(batchPromises));
     }
-    console.log(`- Finished processing auth for ${uniqueUsers.length} users.`);
+    return results;
+}
 
+// --- MAIN SEEDING SCRIPT ---
 
-    // --- STEP 2: Seed Master Data ---
-    console.log('\nSTEP 2: Seeding Departments and Designations...');
-    const masterBatch = writeBatch(db);
-    departmentsRaw.forEach(dept => {
-        const deptRef = doc(db, 'departments', dept.id);
-        masterBatch.set(deptRef, { name: dept.name });
-    });
-    designationsRaw.forEach(desig => {
-        const desigRef = doc(db, 'designations', desig.id);
-        masterBatch.set(desigRef, { name: desig.name });
-    });
-    await masterBatch.commit();
-    console.log(`- Committed ${departmentsRaw.length} departments and ${designationsRaw.length} designations.`);
-
-
-    // --- STEP 3: Create Firestore User Profiles ---
-    console.log('\nSTEP 3: Creating Firestore user profiles...');
-    const userProfileBatch = writeBatch(db);
-    let profilesCreated = 0;
-    for (const userRaw of uniqueUsers) {
-        const userId = userIdMap.get(userRaw.email.toLowerCase());
-        if (userId) {
-            const userRef = doc(db, 'users', userId);
-            const userDoc = await getDoc(userRef);
-
-            if (!userDoc.exists()) {
-                const userProfile: User = {
-                    id: userId,
-                    name: userRaw.name,
-                    email: userRaw.email,
-                    role: userRaw.role as User['role'],
-                    department: userRaw.department || 'Unassigned',
-                    designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
-                    active: true,
-                    photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
-                };
-                userProfileBatch.set(userRef, userProfile);
-                profilesCreated++;
-            }
-        } else {
-             console.warn(`- SKIPPING Firestore profile for ${userRaw.email} as UID could not be determined.`);
-        }
-    }
-    if (profilesCreated > 0) {
-        await userProfileBatch.commit();
-        console.log(`- Committed ${profilesCreated} new user profiles.`);
-    } else {
-        console.log("- No new user profiles to create.");
-    }
-
-
-    // --- STEP 4: Seed Initiatives ---
-    console.log('\nSTEP 4: Seeding initiatives...');
-    const initiativeBatch = writeBatch(db);
-    let initiativesAdded = 0;
+export async function runSeed(db: Firestore, auth: Auth, onProgress: ProgressCallback) {
+    const totalSteps = 4;
+    let currentStep = 0;
     
-    for (const initRaw of initiativesRaw) {
-        const initiativeRef = doc(db, 'initiatives', initRaw.id);
-        const initiativeDoc = await getDoc(initiativeRef);
+    const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
+    const userIdMap = new Map<string, string>();
+
+    try {
+        // --- STEP 1: Process All Auth Users in Batches ---
+        currentStep++;
+        onProgress({ message: `Step 1/${totalSteps}: Processing Auth Users...`, percentage: (currentStep - 1) / totalSteps * 100 });
         
-        if (initiativeDoc.exists()) {
-            console.log(`- Initiative "${initRaw.name}" already exists. Skipping.`);
-            continue;
+        await processInBatches(uniqueUsers, 10, async (userRaw, index) => {
+             const progress = ((currentStep - 1) + (index / uniqueUsers.length)) / totalSteps * 100;
+             onProgress({ message: `Creating auth user for ${userRaw.email}...`, percentage: progress });
+            const authUser = await createOrRetrieveAuthUser(auth, userRaw.email);
+            if (authUser) {
+                userIdMap.set(userRaw.email.toLowerCase(), authUser.uid);
+            }
+        });
+        
+        onProgress({ message: `Step 1/${totalSteps}: Auth Users Processed.`, percentage: currentStep / totalSteps * 100 });
+
+
+        // --- STEP 2: Seed Master Data (Departments & Designations) ---
+        currentStep++;
+        onProgress({ message: `Step 2/${totalSteps}: Seeding Master Data...`, percentage: (currentStep - 1) / totalSteps * 100 });
+        const masterBatch = writeBatch(db);
+        departmentsRaw.forEach(dept => {
+            const deptRef = doc(db, 'departments', dept.id);
+            masterBatch.set(deptRef, { name: dept.name });
+        });
+        designationsRaw.forEach(desig => {
+            const desigRef = doc(db, 'designations', desig.id);
+            masterBatch.set(desigRef, { name: desig.name });
+        });
+        await masterBatch.commit();
+        onProgress({ message: `Step 2/${totalSteps}: Master Data Seeded.`, percentage: currentStep / totalSteps * 100 });
+
+        // --- STEP 3: Create Firestore User Profiles ---
+        currentStep++;
+        onProgress({ message: `Step 3/${totalSteps}: Seeding User Profiles...`, percentage: (currentStep - 1) / totalSteps * 100 });
+        const userProfileBatch = writeBatch(db);
+        let profilesToCreate = 0;
+        for (const userRaw of uniqueUsers) {
+            const userId = userIdMap.get(userRaw.email.toLowerCase());
+            if (userId) {
+                const userRef = doc(db, 'users', userId);
+                const userDoc = await getDoc(userRef);
+                if (!userDoc.exists()) {
+                    const userProfile: User = {
+                        id: userId,
+                        name: userRaw.name,
+                        email: userRaw.email,
+                        role: userRaw.role as User['role'],
+                        department: userRaw.department || 'Unassigned',
+                        designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
+                        active: true,
+                        photoUrl: `https://picsum.photos/seed/${userId}/40/40`,
+                    };
+                    userProfileBatch.set(userRef, userProfile);
+                    profilesToCreate++;
+                }
+            }
         }
+        if (profilesToCreate > 0) {
+            await userProfileBatch.commit();
+        }
+        onProgress({ message: `Step 3/${totalSteps}: User Profiles Seeded.`, percentage: currentStep / totalSteps * 100 });
 
-        const mappedLeadIds = initRaw.leadEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
-        const mappedMemberIds = initRaw.memberEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
 
-        const mappedInitiative = {
-            name: initRaw.name,
-            category: initRaw.category,
-            description: `Work stream for ${initRaw.name}.`,
-            objectives: `Deliver on the objectives for ${initRaw.name}.`,
-            leadIds: mappedLeadIds,
-            teamMemberIds: mappedMemberIds,
-            status: 'Not Started',
-            priority: 'Medium',
-            startDate: new Date().toISOString(),
-            endDate: new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString(),
-            tags: [initRaw.category],
-            ragStatus: 'Green',
-            progress: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        };
-        initiativeBatch.set(initiativeRef, mappedInitiative);
-        initiativesAdded++;
-    }
+        // --- STEP 4: Seed Initiatives ---
+        currentStep++;
+        onProgress({ message: `Step 4/${totalSteps}: Seeding Initiatives...`, percentage: (currentStep - 1) / totalSteps * 100 });
+        const initiativeBatch = writeBatch(db);
+        for (const initRaw of initiativesRaw) {
+            const initiativeRef = doc(db, 'initiatives', initRaw.id);
+            const initiativeDoc = await getDoc(initiativeRef);
+            if (initiativeDoc.exists()) continue;
 
-    if (initiativesAdded > 0) {
+            const mappedLeadIds = initRaw.leadEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
+            const mappedMemberIds = initRaw.memberEmails.map(email => userIdMap.get(email.toLowerCase())).filter(Boolean) as string[];
+
+            initiativeBatch.set(initiativeRef, {
+                name: initRaw.name,
+                category: initRaw.category,
+                description: `Work stream for ${initRaw.name}.`,
+                objectives: `Deliver on the objectives for ${initRaw.name}.`,
+                leadIds: mappedLeadIds,
+                teamMemberIds: mappedMemberIds,
+                status: 'Not Started',
+                priority: 'Medium',
+                startDate: new Date().toISOString(),
+                endDate: new Date(new Date().setMonth(new Date().getMonth() + 6)).toISOString(),
+                tags: [initRaw.category],
+                ragStatus: 'Green',
+                progress: 0,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            });
+        }
         await initiativeBatch.commit();
-        console.log(`- Committed ${initiativesAdded} new initiatives.`);
-    } else {
-        console.log("- No new initiatives to add.");
+        onProgress({ message: "Seeding Complete!", percentage: 100 });
+
+    } catch (error) {
+        console.error("A critical error occurred during seeding:", error);
+        throw error;
     }
 }
 
