@@ -36,21 +36,23 @@ export const useUser = (id: string | undefined) => {
 
 export const useInitiatives = () => {
     const firestore = useFirestore();
-    const { user: authUser, isUserLoading: isAuthUserLoading } = useAuthUser();
-    const { data: currentUser, isLoading: isCurrentUserLoading } = useUser(authUser?.uid);
+    const { user: authUser, isUserLoading } = useAuthUser();
+
+    // We fetch the user's profile document to check their role.
+    const { data: currentUser, isLoading: isUserDocLoading } = useUser(authUser?.uid);
 
     const q = useMemoFirebase(() => {
-        // Wait until we have all the necessary data
-        if (isAuthUserLoading || isCurrentUserLoading || !firestore || !authUser || !currentUser) {
+        // Return null if we are still waiting for auth or the user's profile
+        if (isUserLoading || isUserDocLoading || !firestore || !authUser) {
             return null;
         }
-
-        // If the user is an Admin, fetch all initiatives.
-        if (currentUser.role === 'Admin') {
+        
+        // If the user document exists and they are an Admin, fetch all initiatives.
+        if (currentUser?.role === 'Admin') {
             return query(collection(firestore, 'initiatives'));
         }
 
-        // For non-admins, fetch initiatives where they are a lead OR a team member.
+        // For all other users, fetch initiatives where they are a lead OR a team member.
         return query(
             collection(firestore, 'initiatives'),
             or(
@@ -58,8 +60,9 @@ export const useInitiatives = () => {
                 where('teamMemberIds', 'array-contains', authUser.uid)
             )
         );
-    }, [firestore, authUser, isAuthUserLoading, currentUser, isCurrentUserLoading]);
-
+    }, [firestore, authUser, isUserLoading, currentUser, isUserDocLoading]);
+    
+    // The useCollection hook will handle the null query state and return loading.
     return useCollection<Initiative>(q);
 };
 

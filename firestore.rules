@@ -61,7 +61,7 @@ service cloud.firestore {
 
     // INITIATIVE SUBCOLLECTIONS
     // This rule allows members of an initiative to access all related sub-collection documents.
-    // An Admin also has access because isInitiativeMember calls isAdmin().
+    // An Admin also has access.
     match /initiatives/{initiativeId}/{allChildren=**} {
       allow read, write: if isAdmin() || isInitiativeMember(initiativeId);
     }
