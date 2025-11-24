@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/icons"
 import Link from "next/link"
 import { useAuth, useUser, FirebaseClientProvider } from "@/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +49,25 @@ function LoginComponent() {
                 variant: "destructive",
             });
             setIsLoading(false);
+        }
+    }
+    
+    const handleForceLogout = async () => {
+        if (!auth) return;
+        try {
+            await signOut(auth);
+            toast({
+                title: "Logged Out",
+                description: "Authentication state cleared. Please log in again.",
+            });
+            // Force a page reload to ensure a clean state
+            window.location.reload();
+        } catch (error: any) {
+            toast({
+                title: "Logout Failed",
+                description: error.message,
+                variant: "destructive",
+            });
         }
     }
 
@@ -94,12 +113,9 @@ function LoginComponent() {
             <div className="grid gap-2">
               <div className="flex items-center">
                 <Label htmlFor="password">Password</Label>
-                <Link
-                  href="#"
-                  className="ml-auto inline-block text-sm underline"
-                >
-                  Forgot your password?
-                </Link>
+                <Button variant="link" size="sm" className="ml-auto inline-block p-0 h-auto text-sm" onClick={handleForceLogout}>
+                    Force Logout & Refresh
+                </Button>
               </div>
               <Input 
                 id="password" 
