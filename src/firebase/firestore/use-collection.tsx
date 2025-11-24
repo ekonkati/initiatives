@@ -59,16 +59,16 @@ export function useCollection<T = any>(
   type StateDataType = ResultItemType[] | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Start as loading
+  const [isLoading, setIsLoading] = useState<boolean>(true); 
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    // If the query is null or undefined, it means we are not ready to fetch data.
+    // This happens when auth state is loading or required IDs are not available yet.
+    // We set loading to false and data to null, and simply wait for a valid query.
     if (!memoizedTargetRefOrQuery) {
-      // If the query is null, it might be because dependencies are not ready.
-      // We don't set loading to false here, we just wait.
-      // If it should be considered "loaded" with no data, the parent component should handle this.
+      setIsLoading(false);
       setData(null);
-      setIsLoading(true); // Continue to show loading until a valid query is provided
       setError(null);
       return;
     }

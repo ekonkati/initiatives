@@ -45,15 +45,16 @@ export function useDoc<T = any>(
   type StateDataType = WithId<T> | null;
 
   const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Start as loading
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    // If the ref is null or undefined, it means we are not ready to fetch data.
+    // This happens when auth state is loading or required IDs are not available yet.
+    // We set loading to false and data to null, and simply wait for a valid ref.
     if (!memoizedDocRef) {
-      // If the ref is null, it might be because dependencies are not ready.
-      // We don't set loading to false here, we just wait.
+      setIsLoading(false);
       setData(null);
-      setIsLoading(true); // Continue to show loading until a valid ref is provided
       setError(null);
       return;
     }
