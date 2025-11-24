@@ -35,15 +35,8 @@ export const useInitiatives = () => {
 
 export const useInitiative = (id: string | undefined) => {
     const firestore = useFirestore();
-    const { isUserLoading } = useAuthUser();
-    
     const docRef = useMemoFirebase(() => (id ? doc(firestore, 'initiatives', id) : null), [firestore, id]);
-    
-    const { data, isLoading, error } = useDoc<Initiative>(docRef);
-
-    const combinedIsLoading = isLoading || isUserLoading;
-
-    return { data, isLoading: combinedIsLoading, error };
+    return useDoc<Initiative>(docRef);
 };
 
 
@@ -72,12 +65,10 @@ export const useTasksForUser = (userId: string | undefined) => {
     }, [firestore, userId]);
 
     // Use the existing useCollection hook with the new, efficient query.
-    const { data, isLoading, error } = useCollection<Task>(tasksQuery);
+    const result = useCollection<Task>(tasksQuery);
     
     // The overall loading state depends on both the user being loaded and the tasks query.
-    const combinedIsLoading = isUserLoading || isLoading;
-
-    return { data, isLoading: combinedIsLoading, error };
+    return { ...result, isLoading: isUserLoading || result.isLoading };
 };
 
 export const useInitiativeRatings = (initiativeId: string | undefined) => {
