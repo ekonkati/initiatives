@@ -23,6 +23,7 @@ import { useFirestore, useAuth } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { runSeed } from "@/lib/seeding";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
 
 
 // Schemas
@@ -66,6 +67,8 @@ export default function AdminPage() {
     const [editingDesig, setEditingDesig] = useState<Designation | null>(null);
 
     const [isSeeding, setIsSeeding] = useState(false);
+    const [seedConfirmation, setSeedConfirmation] = useState("");
+
 
     const categories = useMemo(() => {
         if (!initiativesData) return [];
@@ -140,6 +143,7 @@ export default function AdminPage() {
             });
         } finally {
             setIsSeeding(false);
+            setSeedConfirmation("");
         }
     }
 
@@ -363,12 +367,29 @@ export default function AdminPage() {
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                                             <AlertDialogDescription>
-                                                This action will permanently delete all existing users, initiatives, tasks, departments, and designations from the database and replace them with the default sample data. This cannot be undone.
+                                                This action will permanently delete all existing data (users, initiatives, etc.) and replace it with the default sample data. This cannot be undone.
+                                                <br /><br />
+                                                To confirm, please type <strong>DELETE</strong> into the box below.
                                             </AlertDialogDescription>
                                         </AlertDialogHeader>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="delete-confirm" className="sr-only">Confirm Deletion</Label>
+                                            <Input
+                                                id="delete-confirm"
+                                                type="text"
+                                                placeholder="DELETE"
+                                                value={seedConfirmation}
+                                                onChange={(e) => setSeedConfirmation(e.target.value)}
+                                            />
+                                        </div>
                                         <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={handleSeedDatabase}>Continue</AlertDialogAction>
+                                            <AlertDialogCancel onClick={() => setSeedConfirmation("")}>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction 
+                                                onClick={handleSeedDatabase}
+                                                disabled={seedConfirmation !== 'DELETE' || isSeeding}
+                                            >
+                                                {isSeeding ? "Deleting and Seeding..." : "Continue"}
+                                            </AlertDialogAction>
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
