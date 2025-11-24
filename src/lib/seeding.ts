@@ -3,7 +3,7 @@
 /* eslint-disable no-console */
 
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, type User as AuthUser, Auth } from 'firebase/auth';
-import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc, query, WriteBatch, addDoc, Firestore, where, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc, query, WriteBatch, addDoc, Firestore, where, getDoc, setDoc } from 'firebase/firestore';
 import data from '@/lib/placeholder-images.json';
 import { User } from '@/lib/types';
 
@@ -209,8 +209,8 @@ async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: st
                 return userCredential.user;
             } catch (signInError: any) {
                  if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/wrong-password') {
-                    console.warn(`  - Could not sign in to retrieve UID for ${email} (likely password mismatch). Will proceed with a placeholder UID for Firestore, but auth will not be linked for this user on this run.`);
-                    return { email, uid: `existing-user-${email}` } as AuthUser; // Return mock user with a generated UID
+                    console.warn(`  - Could not sign in to retrieve UID for ${email}. Will proceed with a placeholder UID for Firestore, but auth will not be linked for this user on this run.`);
+                    return { email, uid: `existing-user-${email}` } as AuthUser; 
                 }
                 console.error(`  - Error signing in to existing user ${email}:`, signInError.message);
                 return null;
@@ -231,26 +231,25 @@ export async function runSeed(db: Firestore, auth: Auth) {
             deleteCollection(db, 'initiatives'),
             deleteCollection(db, 'departments'),
             deleteCollection(db, 'designations'),
+            deleteCollection(db, 'users')
         ]);
     } catch (error) {
         console.error('Halting seed script due to error during data deletion:', error);
         throw error; // Propagate error up
     }
-    console.log('Previous non-user data deleted successfully.');
+    console.log('Previous data deleted successfully.');
 
 
-    // Create a set of unique users from the raw data to avoid duplicates
-    const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
+    const userIdMap: Record<string, string> = {};
+    const adminUserRaw = usersRaw.find(u => u.role === 'Admin');
 
     console.log('\nSTEP 2: Ensuring Admin user exists...');
-    const userIdMap: Record<string, string> = {}; // Map email to real UID
-    const adminUserRaw = uniqueUsers.find(u => u.role === 'Admin');
-
     if (adminUserRaw) {
         const adminAuthUser = await createOrRetrieveAuthUser(auth, adminUserRaw.email, 'password123');
-        if (adminAuthUser && adminAuthUser.uid) {
+        if (adminAuthUser?.uid) {
              const adminRef = doc(db, 'users', adminAuthUser.uid);
              const adminDoc = await getDoc(adminRef);
+
              if (!adminDoc.exists()) {
                 const adminProfile: User = {
                     id: adminAuthUser.uid,
@@ -262,12 +261,13 @@ export async function runSeed(db: Firestore, auth: Auth) {
                     active: true,
                     photoUrl: `https://picsum.photos/seed/${adminAuthUser.uid}/40/40`,
                 };
-                await addDoc(collection(db, "users"), adminProfile);
+                await setDoc(adminRef, adminProfile);
                 console.log(`- Admin profile created for ${adminUserRaw.email}.`);
              } else {
                 console.log(`- Admin profile for ${adminUserRaw.email} already exists.`);
              }
-            userIdMap[adminUserRaw.email.toLowerCase()] = adminAuthUser.uid;
+             userIdMap[adminUserRaw.email.toLowerCase()] = adminAuthUser.uid;
+             console.log(`- Admin user ${adminUserRaw.email} processed.`);
         } else {
              console.error(`- CRITICAL: Failed to create or verify admin user ${adminUserRaw.email}. Halting seed.`);
              return;
@@ -279,18 +279,20 @@ export async function runSeed(db: Firestore, auth: Auth) {
 
     console.log('\nSTEP 3: Seeding Firestore database...');
     const batch = writeBatch(db);
-
+    const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
+    
     // Add Users
     for (const userRaw of uniqueUsers) {
         if(userRaw.role === 'Admin') continue; // Skip admin
 
         const authUser = await createOrRetrieveAuthUser(auth, userRaw.email, 'password123');
-        if (authUser && authUser.uid) {
+        if (authUser?.uid) {
             const userRef = doc(db, 'users', authUser.uid);
             const userDoc = await getDoc(userRef);
 
             if (!userDoc.exists()) {
-                const userProfile: Omit<User, 'id'> = {
+                 const userProfile: User = {
+                    id: authUser.uid,
                     name: userRaw.name,
                     email: userRaw.email,
                     role: userRaw.role as User['role'],
