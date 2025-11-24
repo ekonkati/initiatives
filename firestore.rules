@@ -12,8 +12,6 @@ service cloud.firestore {
 
     function isAdmin() {
       // Check if the user document exists and the role is 'Admin'.
-      // This requires a 'get' operation, which is billed as one read.
-      // Use this function where necessary for admin-only actions.
       return isUserAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin';
     }
 
@@ -35,19 +33,18 @@ service cloud.firestore {
 
     // USERS
     match /users/{userId} {
-      // Any authenticated user can read any other user's profile.
-      // This is generally safe for non-sensitive public profile info like name and avatar.
+      // Any authenticated user can read any other user's profile for collaboration purposes.
+      // A user can always update their own profile. An admin can update any profile.
       allow read: if isUserAuthenticated();
-      
-      // A user can update their own profile, or an admin can update any profile.
       allow write: if isOwner(userId) || isAdmin();
     }
     
     // INITIATIVES
     match /initiatives/{initiativeId} {
-      // An admin can read/write any initiative.
-      // A non-admin user can read/write an initiative only if they are a member.
-      // This rule covers get, list (for constrained queries), create, update, and delete.
+      // A user can read an initiative if they are an Admin or a member.
+      // A user can write to an initiative if they are an Admin or a member.
+      // This single `read` rule covers both `get` and `list` operations,
+      // as long as client-side `list` queries are correctly constrained.
       allow read, write: if isAdmin() || isInitiativeMember(initiativeId);
     }
     

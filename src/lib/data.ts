@@ -1,7 +1,7 @@
 
 'use client'
 
-import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError, collectionGroup, getDocs, getDoc, or } from 'firebase/firestore';
+import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError, collectionGroup, getDocs, getDoc, or, Query } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useUser as useAuthUser } from '@/firebase';
 import { useCollection, useDoc } from '@/firebase';
 import { type User, type Initiative, type Task, type DailyCheckin, type InitiativeRating, type UserRating, type Department, type Designation, type Attachment } from './types';
@@ -37,46 +37,53 @@ export const useUser = (id: string | undefined) => {
 export const useInitiatives = () => {
     const firestore = useFirestore();
     const { user: authUser, isUserLoading: isAuthLoading } = useAuthUser();
-    const [q, setQ] = useState<any>(null); // State to hold the query
+    const [initiativesQuery, setInitiativesQuery] = useState<Query<DocumentData> | null>(null);
 
     useEffect(() => {
-        // Do not proceed until authentication is resolved and we have a user.
-        if (isAuthLoading || !authUser) {
-            return;
-        }
+        const buildQuery = async () => {
+            // Do not proceed until authentication is resolved and we have a user and firestore instance.
+            if (isAuthLoading || !authUser || !firestore) {
+                return;
+            }
 
-        const fetchUserAndBuildQuery = async () => {
-            // Step 1: Reliably fetch the current user's document to get their role.
-            const userDocRef = doc(firestore, 'users', authUser.uid);
             try {
+                // Step 1: Reliably fetch the current user's document to get their role.
+                const userDocRef = doc(firestore, 'users', authUser.uid);
                 const userDocSnap = await getDoc(userDocRef);
                 
+                let finalQuery: Query<DocumentData>;
+
                 // Step 2: Build the query based on the user's role.
                 if (userDocSnap.exists() && userDocSnap.data().role === 'Admin') {
                     // User is an Admin, query all initiatives.
-                    setQ(query(collection(firestore, 'initiatives')));
+                    finalQuery = query(collection(firestore, 'initiatives'));
                 } else {
                     // User is not an Admin, build a constrained query.
-                    setQ(query(
+                    finalQuery = query(
                         collection(firestore, 'initiatives'),
                         or(
                             where('leadIds', 'array-contains', authUser.uid),
                             where('teamMemberIds', 'array-contains', authUser.uid)
                         )
-                    ));
+                    );
                 }
+                setInitiativesQuery(finalQuery);
+
             } catch (error) {
-                console.error("Error fetching user document for query construction:", error);
-                // Optionally handle error, e.g., set an error state
+                console.error("Error constructing initiatives query:", error);
+                // In case of error (e.g. user profile not found), default to a safe query
+                // that returns nothing for a non-existent user ID.
+                const safeQuery = query(collection(firestore, 'initiatives'), where('leadIds', 'array-contains', 'INVALID_USER_ID'));
+                setInitiativesQuery(safeQuery);
             }
         };
 
-        fetchUserAndBuildQuery();
+        buildQuery();
 
     }, [firestore, authUser, isAuthLoading]);
 
     // useMemoize the query before passing to useCollection
-    const memoizedQuery = useMemoFirebase(() => q, [q]);
+    const memoizedQuery = useMemoFirebase(() => initiativesQuery, [initiativesQuery]);
 
     return useCollection<Initiative>(memoizedQuery);
 };
