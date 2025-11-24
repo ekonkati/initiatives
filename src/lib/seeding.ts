@@ -3,7 +3,7 @@
 /* eslint-disable no-console */
 
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, type User as AuthUser, Auth } from 'firebase/auth';
-import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc, query, WriteBatch, addDoc, Firestore, where } from 'firebase/firestore';
+import { getFirestore, doc, writeBatch, collection, getDocs, deleteDoc, query, WriteBatch, addDoc, Firestore, where, getDoc } from 'firebase/firestore';
 import data from '@/lib/placeholder-images.json';
 import { User } from '@/lib/types';
 
@@ -198,7 +198,6 @@ async function deleteCollection(db: Firestore, collectionPath: string) {
 
 async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: string): Promise<AuthUser | null> {
     try {
-        // Try to create the user. If they exist, it will throw 'auth/email-already-in-use'.
         const userCredential = await createUserWithEmailAndPassword(auth, email, password || 'password123');
         console.log(`- Auth user created for ${email}`);
         return userCredential.user;
@@ -211,7 +210,7 @@ async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: st
             } catch (signInError: any) {
                  if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/wrong-password') {
                     console.warn(`  - Could not sign in to retrieve UID for ${email} (likely password mismatch). Will proceed with a placeholder UID for Firestore, but auth will not be linked for this user on this run.`);
-                    return { email } as AuthUser; // Return mock user
+                    return { email, uid: `existing-user-${email}` } as AuthUser; // Return mock user with a generated UID
                 }
                 console.error(`  - Error signing in to existing user ${email}:`, signInError.message);
                 return null;
@@ -226,50 +225,49 @@ async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: st
 export async function runSeed(db: Firestore, auth: Auth) {
     console.log('--- Firebase Seeding Script ---');
     
-    console.log('STEP 1: Deleting previous data...');
+    console.log('STEP 1: Deleting previous non-user data...');
     try {
         await Promise.all([
             deleteCollection(db, 'initiatives'),
             deleteCollection(db, 'departments'),
             deleteCollection(db, 'designations'),
         ]);
-        // Users are handled separately to preserve the admin
     } catch (error) {
         console.error('Halting seed script due to error during data deletion:', error);
         throw error; // Propagate error up
     }
-    console.log('Previous data deleted successfully (except users, handled next).');
+    console.log('Previous non-user data deleted successfully.');
 
 
     // Create a set of unique users from the raw data to avoid duplicates
     const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
 
-    console.log('\nSTEP 2: Creating authentication users and Firestore profiles...');
+    console.log('\nSTEP 2: Ensuring Admin user exists...');
     const userIdMap: Record<string, string> = {}; // Map email to real UID
-    const userProfiles: User[] = [];
     const adminUserRaw = uniqueUsers.find(u => u.role === 'Admin');
 
-    // Ensure Admin is created first and always exists
     if (adminUserRaw) {
-        // First, delete all users.
-        await deleteCollection(db, 'users');
-        console.log('- Users collection cleared.');
-
         const adminAuthUser = await createOrRetrieveAuthUser(auth, adminUserRaw.email, 'password123');
-        if (adminAuthUser) { // Loosened check to allow proceeding even if UID is missing
-            const adminUid = adminAuthUser.uid || `existing-admin-${adminAuthUser.email}`;
-            userIdMap[adminUserRaw.email.toLowerCase()] = adminUid;
-            userProfiles.push({
-                id: adminUid,
-                name: adminUserRaw.name,
-                email: adminUserRaw.email,
-                role: adminUserRaw.role as User['role'],
-                department: adminUserRaw.department || 'Executive',
-                designation: adminUserRaw.designation || 'CEO',
-                active: true,
-                photoUrl: `https://picsum.photos/seed/${adminUid}/40/40`,
-            });
-             console.log(`- Admin user ${adminUserRaw.email} processed.`);
+        if (adminAuthUser && adminAuthUser.uid) {
+             const adminRef = doc(db, 'users', adminAuthUser.uid);
+             const adminDoc = await getDoc(adminRef);
+             if (!adminDoc.exists()) {
+                const adminProfile: User = {
+                    id: adminAuthUser.uid,
+                    name: adminUserRaw.name,
+                    email: adminUserRaw.email,
+                    role: adminUserRaw.role as User['role'],
+                    department: adminUserRaw.department || 'Executive',
+                    designation: adminUserRaw.designation || 'CEO',
+                    active: true,
+                    photoUrl: `https://picsum.photos/seed/${adminAuthUser.uid}/40/40`,
+                };
+                await addDoc(collection(db, "users"), adminProfile);
+                console.log(`- Admin profile created for ${adminUserRaw.email}.`);
+             } else {
+                console.log(`- Admin profile for ${adminUserRaw.email} already exists.`);
+             }
+            userIdMap[adminUserRaw.email.toLowerCase()] = adminAuthUser.uid;
         } else {
              console.error(`- CRITICAL: Failed to create or verify admin user ${adminUserRaw.email}. Halting seed.`);
              return;
@@ -279,44 +277,35 @@ export async function runSeed(db: Firestore, auth: Auth) {
         return;
     }
 
-
-    // Process the rest of the users
-    for (const user of uniqueUsers) {
-        if (user.role === 'Admin') continue; // Skip admin, already processed
-
-        const authUser = await createOrRetrieveAuthUser(auth, user.email, 'password123');
-        
-        if (authUser) {
-            // A real UID might not be available if the user already existed and we didn't sign in.
-            // For the purpose of seeding, we need a consistent ID. We'll generate one if needed.
-            const uid = authUser.uid || `existing-user-${user.email}`;
-            if (!userIdMap[user.email.toLowerCase()]) {
-                userIdMap[user.email.toLowerCase()] = uid;
-                 userProfiles.push({
-                    id: uid,
-                    name: user.name,
-                    email: user.email,
-                    role: user.role as User['role'],
-                    department: user.department || 'Unassigned',
-                    designation: user.designation || (user.role === 'Initiative Lead' ? 'Lead' : 'Member'),
-                    active: true,
-                    photoUrl: `https://picsum.photos/seed/${uid}/40/40`,
-                });
-            }
-        }
-    }
-    console.log('Authentication users created and mapped.');
-
-
     console.log('\nSTEP 3: Seeding Firestore database...');
     const batch = writeBatch(db);
 
     // Add Users
-    userProfiles.forEach(profile => {
-        const userRef = doc(db, 'users', profile.id);
-        batch.set(userRef, profile);
-    });
-    console.log(`- Added ${userProfiles.length} user profiles to the batch.`);
+    for (const userRaw of uniqueUsers) {
+        if(userRaw.role === 'Admin') continue; // Skip admin
+
+        const authUser = await createOrRetrieveAuthUser(auth, userRaw.email, 'password123');
+        if (authUser && authUser.uid) {
+            const userRef = doc(db, 'users', authUser.uid);
+            const userDoc = await getDoc(userRef);
+
+            if (!userDoc.exists()) {
+                const userProfile: Omit<User, 'id'> = {
+                    name: userRaw.name,
+                    email: userRaw.email,
+                    role: userRaw.role as User['role'],
+                    department: userRaw.department || 'Unassigned',
+                    designation: userRaw.designation || (userRaw.role === 'Initiative Lead' ? 'Lead' : 'Member'),
+                    active: true,
+                    photoUrl: `https://picsum.photos/seed/${authUser.uid}/40/40`,
+                };
+                batch.set(userRef, userProfile);
+            }
+             if (!userIdMap[userRaw.email.toLowerCase()]) {
+                userIdMap[userRaw.email.toLowerCase()] = authUser.uid;
+            }
+        }
+    }
     
     // Add Initiatives and Subcollections
     initiativesRaw.forEach(initRaw => {
