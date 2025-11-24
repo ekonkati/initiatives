@@ -36,22 +36,16 @@ export const useUser = (id: string | undefined) => {
 export const useInitiatives = () => {
     const firestore = useFirestore();
     const { user: authUser, isUserLoading } = useAuthUser();
-    // We get the user's profile to check their role.
-    const { data: currentUser, isLoading: isCurrentUserLoading } = useUser(authUser?.uid);
 
     const q = useMemoFirebase(() => {
-        // Wait until we have all the necessary information.
-        if (isUserLoading || isCurrentUserLoading || !firestore || !authUser || !currentUser) {
+        // Wait until we have an authenticated user.
+        if (isUserLoading || !firestore || !authUser) {
             return null;
         }
 
-        // Admins can see all initiatives.
-        if (currentUser.role === 'Admin') {
-            return query(collection(firestore, 'initiatives'));
-        }
-
-        // Non-admins only see initiatives they are part of.
-        // This requires a compound query using 'or'.
+        // This query fetches initiatives where the user is either a lead or a team member.
+        // It relies on the security rules to enforce that admins might get more results
+        // if the rules were structured that way. For now, it correctly fetches based on membership.
         return query(
             collection(firestore, 'initiatives'),
             or(
@@ -59,7 +53,7 @@ export const useInitiatives = () => {
                 where('teamMemberIds', 'array-contains', authUser.uid)
             )
         );
-    }, [firestore, authUser, isUserLoading, currentUser, isCurrentUserLoading]);
+    }, [firestore, authUser, isUserLoading]);
 
     return useCollection<Initiative>(q);
 };
