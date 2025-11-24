@@ -1,3 +1,4 @@
+
 import {
   Briefcase,
   Home,
@@ -19,7 +20,7 @@ export function MainNav() {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton asChild tooltip="Home">
-            <Link href="/initiatives">
+            <Link href="/">
               <Home />
               <span>Home</span>
             </Link>
