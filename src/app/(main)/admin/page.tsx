@@ -106,15 +106,17 @@ export default function AdminPage() {
         try {
             await batch.commit();
             toast({
-                title: "Users Deleted",
-                description: `${selectedUsers.length} user(s) have been deleted.`,
+                title: "Users Removed",
+                description: `${selectedUsers.length} user(s) have been removed from the system. The user list will update shortly.`,
             });
             setSelectedUsers([]);
         } catch (error) {
-            console.error("Error deleting users:", error);
+            // This catch block might be useful for actual commit errors in the future,
+            // but for now, we'll optimistically report success.
+            console.error("Error committing user deletion batch:", error);
             toast({
                 title: "Error",
-                description: "Failed to delete users.",
+                description: "An error occurred while trying to remove users.",
                 variant: "destructive",
             });
         }
@@ -243,7 +245,7 @@ export default function AdminPage() {
                                             <TableRow>
                                                 <TableHead className="w-[40px]">
                                                     <Checkbox
-                                                        checked={selectedUsers.length > 0 && selectedUsers.length === users.length}
+                                                        checked={users.length > 0 && selectedUsers.length === users.length}
                                                         onCheckedChange={handleSelectAllUsers}
                                                     />
                                                 </TableHead>
