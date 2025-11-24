@@ -19,7 +19,7 @@ export function MainNav() {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton asChild tooltip="Home">
-            <Link href="/">
+            <Link href="/initiatives">
               <Home />
               <span>Home</span>
             </Link>
