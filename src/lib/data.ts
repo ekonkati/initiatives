@@ -2,7 +2,7 @@
 
 'use client'
 
-import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError } from 'firebase/firestore';
+import { collection, query, where, doc, onSnapshot, DocumentData, FirestoreError, collectionGroup } from 'firebase/firestore';
 import { useFirestore, useMemoFirebase, useUser as useAuthUser } from '@/firebase';
 import { useCollection, useDoc } from '@/firebase';
 import { type User, type Initiative, type Task, type DailyCheckin, type InitiativeRating, type UserRating, type Department, type Designation, type Attachment } from './types';
@@ -61,67 +61,23 @@ export const useAttachmentsForInitiative = (initiativeId: string | undefined) =>
 
 export const useTasksForUser = (userId: string | undefined) => {
     const firestore = useFirestore();
-    const { data: initiatives, isLoading: isLoadingInitiatives } = useInitiatives();
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
+    const { isUserLoading } = useAuthUser();
 
-    useEffect(() => {
-        if (!userId || !initiatives) {
-            if (!isLoadingInitiatives) {
-                setIsLoading(false);
-            }
-            return;
-        };
+    // Create a collection group query across all 'tasks' subcollections.
+    // This is much more efficient than fetching all initiatives first.
+    const tasksQuery = useMemoFirebase(() => {
+        if (!userId) return null;
+        // Query the 'tasks' collection group, filtering by the ownerId.
+        return query(collectionGroup(firestore, 'tasks'), where('ownerId', '==', userId));
+    }, [firestore, userId]);
 
-        setIsLoading(true);
+    // Use the existing useCollection hook with the new, efficient query.
+    const { data, isLoading, error } = useCollection<Task>(tasksQuery);
+    
+    // The overall loading state depends on both the user being loaded and the tasks query.
+    const combinedIsLoading = isUserLoading || isLoading;
 
-        const initiativeIds = initiatives.map(i => i.id);
-        if (initiativeIds.length === 0) {
-            setTasks([]);
-            setIsLoading(false);
-            return;
-        }
-        
-        let activeListeners = initiativeIds.length;
-        const allTasks: Record<string, Task> = {};
-        
-        const unsubscribes = initiativeIds.map(initiativeId => {
-            const tasksCollection = collection(firestore, 'initiatives', initiativeId, 'tasks');
-            const q = query(tasksCollection, where('ownerId', '==', userId));
-            
-            return onSnapshot(q, (snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                     if (change.type === "removed") {
-                        delete allTasks[change.doc.id];
-                    } else {
-                        allTasks[change.doc.id] = { id: change.doc.id, ...change.doc.data() } as Task;
-                    }
-                });
-                setTasks(Object.values(allTasks));
-
-            }, (err) => {
-                console.error(`Error fetching tasks for initiative ${initiativeId}:`, err);
-                setError(err); 
-                activeListeners--;
-                 if (activeListeners === 0) {
-                    setIsLoading(false);
-                }
-            }, () => {
-                 activeListeners--;
-                 if (activeListeners === 0) {
-                    setIsLoading(false);
-                }
-            });
-        });
-
-
-        // Cleanup function
-        return () => unsubscribes.forEach(unsub => unsub());
-
-    }, [userId, initiatives, firestore, isLoadingInitiatives]);
-
-    return { data: tasks, isLoading: isLoading || isLoadingInitiatives, error };
+    return { data, isLoading: combinedIsLoading, error };
 };
 
 export const useInitiativeRatings = (initiativeId: string | undefined) => {
@@ -153,5 +109,3 @@ export const useDesignations = () => {
     const q = useMemoFirebase(() => query(collection(firestore, 'designations')), [firestore]);
     return useCollection<Designation>(q);
 };
-
-    

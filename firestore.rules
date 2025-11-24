@@ -9,8 +9,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Check for the existence of an admin role document for the user.
-      // This is more secure and flexible than checking a field on the user profile.
+      // Check the 'role' field on the user's own profile document.
       return getUserRole() == 'Admin';
     }
 
@@ -18,8 +17,7 @@ service cloud.firestore {
       let initiativeDoc = get(/databases/$(database)/documents/initiatives/$(initiativeId));
       let leads = initiativeDoc.data.leadIds;
       let members = initiativeDoc.data.teamMemberIds;
-      // Note: 'in' operator checks for keys in a map, not values in a list.
-      // We must check if the uid is in the list of leads or members.
+      // Correctly check for UID existence in the lists.
       return request.auth.uid in leads || request.auth.uid in members || isAdmin();
     }
 
@@ -45,7 +43,7 @@ service cloud.firestore {
 
     // Rules for initiatives and their subcollections
     match /initiatives/{initiativeId} {
-      // Allow authenticated users to list initiatives for the main page.
+      // Allow any authenticated user to list initiatives for the main page.
       allow list: if request.auth.uid != null;
       
       // Allow read/write only if the user is a member of the initiative.
@@ -53,13 +51,19 @@ service cloud.firestore {
 
       // Tasks subcollection
       match /tasks/{taskId} {
-        allow read, write, list, create, delete: if isInitiativeMember(initiativeId);
+        allow read, write, create, delete: if isInitiativeMember(initiativeId);
       }
       
       // Attachments subcollection
       match /attachments/{attachmentId} {
         allow read, write, list, create, delete: if isInitiativeMember(initiativeId);
       }
+    }
+     // Rule for the 'tasks' collection group query.
+    // This allows a user to query for all tasks assigned to them across all initiatives.
+    match /{path=**}/tasks/{taskId} {
+      // Allow reading tasks if the query is filtering for the user's own tasks.
+      allow read: if request.auth.uid == resource.data.ownerId;
     }
   }
 }
