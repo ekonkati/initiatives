@@ -106,7 +106,6 @@ const usersRaw = [
     { name: 'Hanumanthu Murali', email: 'muralimohan.h@resustainability.com', role: 'Team Member' },
     { name: 'Dr Rajeshwar', email: 'rajeshwar.d@resustainability.com', role: 'Team Member' },
     { name: 'Dr Mrinal', email: 'mrinal.mallik@resustainability.com', role: 'Team Member' },
-    { name: 'Aarti', email: 'aarti.kesiraju@resustainability.com', role: 'Team Member' },
     { name: 'Dr Chakradhar', email: 'drchakradhar@resustainability.com', role: 'Team Member' },
 ];
 
@@ -269,13 +268,25 @@ export async function runSeed(db: Firestore, auth: Auth) {
     // Add Initiatives and Subcollections
     initiativesRaw.forEach(initRaw => {
         const initiativeRef = doc(db, 'initiatives', initRaw.id);
+        const mappedLeadIds = initRaw.leadEmails.map(email => {
+            const uid = userIdMap[email.toLowerCase()];
+            if (!uid) console.warn(`[Seeding Warning] Lead email not found in user map: ${email}`);
+            return uid;
+        }).filter(Boolean);
+
+        const mappedMemberIds = initRaw.memberEmails.map(email => {
+            const uid = userIdMap[email.toLowerCase()];
+            if (!uid) console.warn(`[Seeding Warning] Member email not found in user map: ${email}`);
+            return uid;
+        }).filter(Boolean);
+
         const mappedInitiative = {
             name: initRaw.name,
             category: initRaw.category,
             description: `Work stream for ${initRaw.name}.`,
             objectives: `Deliver on the objectives for ${initRaw.name}.`,
-            leadIds: initRaw.leadEmails.map(email => userIdMap[email]).filter(Boolean),
-            teamMemberIds: initRaw.memberEmails.map(email => userIdMap[email]).filter(Boolean),
+            leadIds: mappedLeadIds,
+            teamMemberIds: mappedMemberIds,
             status: 'Not Started',
             priority: 'Medium',
             startDate: new Date().toISOString(),
