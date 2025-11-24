@@ -204,11 +204,18 @@ async function createOrRetrieveAuthUser(auth: Auth, email: string, password?: st
         return userCredential.user;
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
-            console.log(`- Auth user for ${email} already exists. Skipping auth creation.`);
-            // In a real scenario you might want to sign in to get the user object, but that requires a password.
-            // For seeding, it's often safer to just know they exist and proceed.
-            // We'll return a placeholder-like object or null, and the calling function will handle it.
-            return { email } as AuthUser; // Return a mock user object to signify existence.
+            console.log(`- Auth user for ${email} already exists. Attempting sign-in to retrieve UID.`);
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password || 'password123');
+                return userCredential.user;
+            } catch (signInError: any) {
+                 if (signInError.code === 'auth/invalid-credential' || signInError.code === 'auth/wrong-password') {
+                    console.warn(`  - Could not sign in to retrieve UID for ${email} (likely password mismatch). Will proceed with a placeholder UID for Firestore, but auth will not be linked for this user on this run.`);
+                    return { email } as AuthUser; // Return mock user
+                }
+                console.error(`  - Error signing in to existing user ${email}:`, signInError.message);
+                return null;
+            }
         }
         console.error(`  - Error processing auth for user ${email}:`, error.message);
         return null;
@@ -221,18 +228,18 @@ export async function runSeed(db: Firestore, auth: Auth) {
     
     console.log('STEP 1: Deleting previous data...');
     try {
-        // We delete all users first, then re-create the admin.
         await Promise.all([
             deleteCollection(db, 'initiatives'),
-            deleteCollection(db, 'users'), 
             deleteCollection(db, 'departments'),
             deleteCollection(db, 'designations'),
         ]);
+        // Users are handled separately to preserve the admin
     } catch (error) {
         console.error('Halting seed script due to error during data deletion:', error);
         throw error; // Propagate error up
     }
-    console.log('Previous data deleted successfully.');
+    console.log('Previous data deleted successfully (except users, handled next).');
+
 
     // Create a set of unique users from the raw data to avoid duplicates
     const uniqueUsers = Array.from(new Map(usersRaw.map(user => [user.email.toLowerCase(), user])).values());
@@ -244,18 +251,23 @@ export async function runSeed(db: Firestore, auth: Auth) {
 
     // Ensure Admin is created first and always exists
     if (adminUserRaw) {
+        // First, delete all users.
+        await deleteCollection(db, 'users');
+        console.log('- Users collection cleared.');
+
         const adminAuthUser = await createOrRetrieveAuthUser(auth, adminUserRaw.email, 'password123');
-        if (adminAuthUser && adminAuthUser.uid) {
-            userIdMap[adminUserRaw.email.toLowerCase()] = adminAuthUser.uid;
+        if (adminAuthUser) { // Loosened check to allow proceeding even if UID is missing
+            const adminUid = adminAuthUser.uid || `existing-admin-${adminAuthUser.email}`;
+            userIdMap[adminUserRaw.email.toLowerCase()] = adminUid;
             userProfiles.push({
-                id: adminAuthUser.uid,
+                id: adminUid,
                 name: adminUserRaw.name,
                 email: adminUserRaw.email,
                 role: adminUserRaw.role as User['role'],
                 department: adminUserRaw.department || 'Executive',
                 designation: adminUserRaw.designation || 'CEO',
                 active: true,
-                photoUrl: `https://picsum.photos/seed/${adminAuthUser.uid}/40/40`,
+                photoUrl: `https://picsum.photos/seed/${adminUid}/40/40`,
             });
              console.log(`- Admin user ${adminUserRaw.email} processed.`);
         } else {
@@ -278,18 +290,19 @@ export async function runSeed(db: Firestore, auth: Auth) {
             // A real UID might not be available if the user already existed and we didn't sign in.
             // For the purpose of seeding, we need a consistent ID. We'll generate one if needed.
             const uid = authUser.uid || `existing-user-${user.email}`;
-            userIdMap[user.email.toLowerCase()] = uid;
-
-            userProfiles.push({
-                id: uid,
-                name: user.name,
-                email: user.email,
-                role: user.role as User['role'],
-                department: user.department || 'Unassigned',
-                designation: user.designation || (user.role === 'Initiative Lead' ? 'Lead' : 'Member'),
-                active: true,
-                photoUrl: `https://picsum.photos/seed/${uid}/40/40`,
-            });
+            if (!userIdMap[user.email.toLowerCase()]) {
+                userIdMap[user.email.toLowerCase()] = uid;
+                 userProfiles.push({
+                    id: uid,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role as User['role'],
+                    department: user.department || 'Unassigned',
+                    designation: user.designation || (user.role === 'Initiative Lead' ? 'Lead' : 'Member'),
+                    active: true,
+                    photoUrl: `https://picsum.photos/seed/${uid}/40/40`,
+                });
+            }
         }
     }
     console.log('Authentication users created and mapped.');
@@ -334,6 +347,8 @@ export async function runSeed(db: Firestore, auth: Auth) {
             tags: [initRaw.category],
             ragStatus: 'Green',
             progress: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
         };
         batch.set(initiativeRef, mappedInitiative);
     });
@@ -364,3 +379,5 @@ export async function runSeed(db: Firestore, auth: Auth) {
 
     console.log('\n--- Seeding Complete! ---');
 }
+
+    
