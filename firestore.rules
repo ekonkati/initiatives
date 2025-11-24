@@ -38,12 +38,11 @@ service cloud.firestore {
     }
     
     // INITIATIVES
-    // A user can read an initiative doc if they are a member.
-    // This single 'read' rule covers both 'get' and 'list' operations.
-    // For 'list' to succeed, the client query MUST be constrained to only request
-    // documents that the user is a member of (which useInitiatives hook now does).
     match /initiatives/{initiativeId} {
-        allow read, write: if isInitiativeMember(initiativeId);
+      // A user can read an initiative doc if they are a member.
+      // This rule covers 'get' and allows 'list' queries as long as the 
+      // client query ONLY asks for documents where the user is a member.
+      allow read, write: if isInitiativeMember(initiativeId);
     }
     
     // DEPARTMENTS & DESIGNATIONS (Master Data)

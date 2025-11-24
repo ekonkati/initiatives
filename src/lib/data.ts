@@ -37,78 +37,30 @@ export const useUser = (id: string | undefined) => {
 export const useInitiatives = () => {
     const firestore = useFirestore();
     const { user: authUser, isUserLoading } = useAuthUser();
-    const [initiatives, setInitiatives] = useState<Initiative[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<Error | null>(null);
+    const { data: currentUser, isLoading: isCurrentUserLoading } = useUser(authUser?.uid);
 
-    useEffect(() => {
-        if (isUserLoading) {
-            setIsLoading(true);
-            return;
+    const q = useMemoFirebase(() => {
+        // Wait until we have all the necessary data
+        if (isUserLoading || isCurrentUserLoading || !firestore || !authUser || !currentUser) {
+            return null;
         }
 
-        if (!authUser || !firestore) {
-            setIsLoading(false);
-            setInitiatives([]);
-            return;
+        // If the user is an Admin, fetch all initiatives.
+        if (currentUser.role === 'Admin') {
+            return query(collection(firestore, 'initiatives'));
         }
 
-        let unsubscribe: (() => void) | null = null;
+        // For non-admins, fetch initiatives where they are a lead OR a team member.
+        return query(
+            collection(firestore, 'initiatives'),
+            or(
+                where('leadIds', 'array-contains', authUser.uid),
+                where('teamMemberIds', 'array-contains', authUser.uid)
+            )
+        );
+    }, [firestore, authUser, isUserLoading, currentUser, isCurrentUserLoading]);
 
-        const fetchInitiatives = async () => {
-            setIsLoading(true);
-            try {
-                // Step 1: Get the current user's role.
-                const userDocRef = doc(firestore, 'users', authUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                const userRole = userDocSnap.exists() ? userDocSnap.data().role : null;
-
-                // Step 2: Build the query based on the role.
-                let initiativesQuery;
-                if (userRole === 'Admin') {
-                    // Admin gets all initiatives.
-                    initiativesQuery = query(collection(firestore, 'initiatives'));
-                } else {
-                    // Non-admins get initiatives they are a member of.
-                    initiativesQuery = query(
-                        collection(firestore, 'initiatives'),
-                        or(
-                            where('leadIds', 'array-contains', authUser.uid),
-                            where('teamMemberIds', 'array-contains', authUser.uid)
-                        )
-                    );
-                }
-
-                // Step 3: Subscribe to the query.
-                unsubscribe = onSnapshot(initiativesQuery, (snapshot) => {
-                    const fetchedInitiatives = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Initiative[];
-                    setInitiatives(fetchedInitiatives);
-                    setError(null);
-                    setIsLoading(false);
-                }, (err) => {
-                    console.error("Error fetching initiatives:", err);
-                    setError(err);
-                    setIsLoading(false);
-                });
-
-            } catch (err) {
-                console.error("Error setting up initiative fetch:", err);
-                setError(err as Error);
-                setIsLoading(false);
-            }
-        };
-
-        fetchInitiatives();
-
-        // Cleanup function
-        return () => {
-            if (unsubscribe) {
-                unsubscribe();
-            }
-        };
-    }, [authUser, isUserLoading, firestore]);
-
-    return { data: initiatives, isLoading, error };
+    return useCollection<Initiative>(q);
 };
 
 
