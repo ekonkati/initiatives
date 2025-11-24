@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { AppShell } from "@/components/app-shell";
@@ -312,6 +313,7 @@ function TaskManager({ initiativeId, tasks, users, userMap, isMember }: TaskMana
     const handleDeleteTask = async (taskId: string) => {
         if (!confirm("Are you sure you want to delete this task?")) return;
         try {
+            if (!firestore) return;
             await deleteDoc(doc(firestore, 'initiatives', initiativeId, 'tasks', taskId));
             toast({ title: "Task Deleted", description: "The task has been removed." });
         } catch (error: any) {
@@ -321,6 +323,7 @@ function TaskManager({ initiativeId, tasks, users, userMap, isMember }: TaskMana
 
     const onTaskFormSubmit = async (values: TaskFormValues) => {
         try {
+            if (!firestore) return;
             const dataToSave = {
                 ...values,
                 dueDate: values.dueDate.toISOString(),
@@ -581,7 +584,7 @@ function DocumentManager({ initiativeId, attachments, userMap, isMember }: Docum
     };
     
     const handleUpload = (file: File) => {
-        if (!authUser) return;
+        if (!authUser || !firestore || !storage) return;
 
         const fileId = doc(collection(firestore, 'temp')).id;
         const filePath = `initiatives/${initiativeId}/${fileId}-${file.name}`;
@@ -632,6 +635,7 @@ function DocumentManager({ initiativeId, attachments, userMap, isMember }: Docum
 
     const handleDelete = async (attachment: Attachment) => {
         if (!confirm(`Are you sure you want to delete "${attachment.name}"?`)) return;
+        if (!firestore || !storage) return;
 
         try {
             // Delete file from Storage
@@ -649,7 +653,7 @@ function DocumentManager({ initiativeId, attachments, userMap, isMember }: Docum
     };
     
     const onRenameSubmit = async (values: AttachmentFormValues) => {
-        if (!editingAttachment) return;
+        if (!editingAttachment || !firestore) return;
         try {
             const docRef = doc(firestore, 'initiatives', initiativeId, 'attachments', editingAttachment.id);
             await updateDoc(docRef, { name: values.name });
@@ -800,3 +804,5 @@ function AttachmentFormDialog({ attachment, open, onOpenChange, onSubmit }: Atta
         </Dialog>
     );
 }
+
+    

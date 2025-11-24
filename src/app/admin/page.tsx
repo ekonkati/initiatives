@@ -12,9 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUsers, useInitiatives, useDepartments, useDesignations } from "@/lib/data";
 import { Department, Designation, User } from "@/lib/types";
 import { Database, MoreHorizontal, PlusCircle } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm } from "react-hook-form";
@@ -45,7 +45,7 @@ type MasterDataFormValues = z.infer<typeof masterDataFormSchema>;
 
 
 export default function AdminPage() {
-    const { data: usersData } = useUsers();
+    const { data: usersData, isLoading: isLoadingUsers } = useUsers();
     const { data: initiativesData } = useInitiatives();
     const { data: departmentsData } = useDepartments();
     const { data: designationsData } = useDesignations();
@@ -75,29 +75,28 @@ export default function AdminPage() {
     }, [initiativesData]);
 
     // User Management Handlers
-    const handleAddNewUser = () => {
-        setEditingUser(null);
-        setIsUserFormOpen(true);
-    };
-
     const handleEditUser = (user: User) => {
         setEditingUser(user);
         setIsUserFormOpen(true);
     };
 
     const handleDeactivateUser = async (user: User) => {
-        if (confirm(`Are you sure you want to deactivate ${user.name}?`)) {
-            const userRef = doc(firestore, 'users', user.id);
-            await updateDoc(userRef, { active: false });
-        }
+        const userRef = doc(firestore, 'users', user.id);
+        await updateDoc(userRef, { active: false });
+        toast({
+            title: "User Deactivated",
+            description: `${user.name} has been deactivated.`,
+        });
     };
 
     const onUserFormSubmit = async (values: UserFormValues) => {
         if (editingUser) {
             const userRef = doc(firestore, 'users', editingUser.id);
             await updateDoc(userRef, values);
-        } else {
-            alert("Adding a new user requires creating an authentication entry first, which is not implemented in this prototype.");
+            toast({
+                title: "User Updated",
+                description: `${values.name}'s profile has been updated.`,
+            });
         }
         setIsUserFormOpen(false);
         setEditingUser(null);
@@ -124,6 +123,9 @@ export default function AdminPage() {
     const handleSeedDatabase = async () => {
         setIsSeeding(true);
         try {
+            if (!auth || !firestore) {
+                throw new Error("Firebase services are not available.");
+            }
             await runSeed(firestore, auth);
             toast({
                 title: "Success",
@@ -165,10 +167,7 @@ export default function AdminPage() {
                             <Card>
                                 <CardHeader>
                                     <CardTitle>User Management</CardTitle>
-                                    <CardDescription>Add, edit, or remove users from the system.</CardDescription>
-                                    <Button className="w-fit ml-auto -mt-12" onClick={handleAddNewUser}>
-                                        <PlusCircle className="mr-2 h-4 w-4" /> Add User
-                                    </Button>
+                                    <CardDescription>Edit or remove users from the system.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
                                     <Table>
@@ -178,16 +177,22 @@ export default function AdminPage() {
                                                 <TableHead>Email</TableHead>
                                                 <TableHead>Role</TableHead>
                                                 <TableHead>Department</TableHead>
+                                                <TableHead>Status</TableHead>
                                                 <TableHead className="text-right">Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {users.map(user => (
+                                            {isLoadingUsers ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} className="text-center">Loading users...</TableCell>
+                                                </TableRow>
+                                            ) : users.map(user => (
                                                 <TableRow key={user.id}>
                                                     <TableCell className="font-medium">{user.name}</TableCell>
                                                     <TableCell>{user.email}</TableCell>
                                                     <TableCell>{user.role}</TableCell>
                                                     <TableCell>{user.department}</TableCell>
+                                                    <TableCell>{user.active ? "Active" : "Inactive"}</TableCell>
                                                     <TableCell className="text-right">
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
@@ -197,7 +202,27 @@ export default function AdminPage() {
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent>
                                                                 <DropdownMenuItem onClick={() => handleEditUser(user)}>Edit</DropdownMenuItem>
-                                                                <DropdownMenuItem className="text-red-500" onClick={() => handleDeactivateUser(user)}>Deactivate</DropdownMenuItem>
+                                                                {user.active && (
+                                                                <AlertDialog>
+                                                                    <AlertDialogTrigger asChild>
+                                                                        <div className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-red-500">
+                                                                            Deactivate
+                                                                        </div>
+                                                                    </AlertDialogTrigger>
+                                                                    <AlertDialogContent>
+                                                                        <AlertDialogHeader>
+                                                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                                            <AlertDialogDescription>
+                                                                                This will mark the user as inactive. They will not be able to log in.
+                                                                            </AlertDialogDescription>
+                                                                        </AlertDialogHeader>
+                                                                        <AlertDialogFooter>
+                                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                            <AlertDialogAction onClick={() => handleDeactivateUser(user)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Deactivate</AlertDialogAction>
+                                                                        </AlertDialogFooter>
+                                                                    </AlertDialogContent>
+                                                                </AlertDialog>
+                                                                )}
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
                                                     </TableCell>
@@ -413,14 +438,27 @@ interface UserFormDialogProps {
 function UserFormDialog({ user, onSubmit, onClose, departments, designations }: UserFormDialogProps) {
     const form = useForm<UserFormValues>({
         resolver: zodResolver(userFormSchema),
-        defaultValues: {
-            name: user?.name || "",
-            email: user?.email || "",
-            role: user?.role || "Team Member",
-            department: user?.department || "",
-            designation: user?.designation || "",
-        },
+        defaultValues: user ? {
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            department: user.department,
+            designation: user.designation,
+        } : {},
     });
+
+    useState(() => {
+        if (user) {
+            form.reset({
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                department: user.department,
+                designation: user.designation,
+            });
+        }
+    }, [user, form]);
+
 
     const title = user ? "Edit User" : "Add New User";
     const description = user
@@ -537,7 +575,5 @@ function MasterDataFormDialog({ item, title, description, onSubmit, onClose }: M
         </DialogContent>
     );
 }
-
-    
 
     

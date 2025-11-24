@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from "@/components/ui/button"
@@ -12,18 +13,43 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/icons"
 import Link from "next/link"
-import { useAuth } from "@/firebase";
-import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
+import { useAuth, useUser } from "@/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
     const auth = useAuth();
     const router = useRouter();
+    const { toast } = useToast();
+    const { user: authUser, isUserLoading } = useUser();
 
-    const handleLogin = () => {
-        // This is a mock login. In a real app, you'd get the email and password from the form.
-        initiateEmailSignIn(auth, 'alia.hassan@example.com', 'password123');
-        router.push('/');
+    const [email, setEmail] = useState('alia.hassan@example.com');
+    const [password, setPassword] = useState('password123');
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        // Redirect if user is already logged in
+        if (!isUserLoading && authUser) {
+            router.push('/');
+        }
+    }, [authUser, isUserLoading, router]);
+
+    const handleLogin = async () => {
+        if (!auth) return;
+        setIsLoading(true);
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            router.push('/');
+        } catch (error: any) {
+            toast({
+                title: "Login Failed",
+                description: error.message,
+                variant: "destructive",
+            });
+            setIsLoading(false);
+        }
     }
 
   return (
@@ -44,8 +70,10 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 placeholder="m@example.com"
-                defaultValue="alia.hassan@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
             <div className="grid gap-2">
@@ -58,12 +86,19 @@ export default function LoginPage() {
                   Forgot your password?
                 </Link>
               </div>
-              <Input id="password" type="password" defaultValue="password123" required />
+              <Input 
+                id="password" 
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required 
+                disabled={isLoading}
+              />
             </div>
-            <Button onClick={handleLogin} type="submit" className="w-full">
-                Login
+            <Button onClick={handleLogin} type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Logging in..." : "Login"}
             </Button>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" disabled={isLoading}>
               Login with Google
             </Button>
           </div>
@@ -78,3 +113,5 @@ export default function LoginPage() {
     </div>
   )
 }
+
+    
