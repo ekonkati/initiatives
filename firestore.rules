@@ -55,9 +55,12 @@ service cloud.firestore {
     match /initiatives/{initiativeId} {
       // Only members or admins can read a single full initiative document.
       allow get: if isInitiativeMember(initiativeId);
-      // Members or admins can perform queries, but the client code must
-      // enforce the actual filtering by user ID.
+      
+      // Admins can list all initiatives. 
+      // Other users' list queries must include a 'where' clause for membership,
+      // which is handled by the client. This rule allows those queries to pass.
       allow list: if isUserAuthenticated();
+
       // Only members or admins can write to the initiative document.
       allow write: if isInitiativeMember(initiativeId);
 

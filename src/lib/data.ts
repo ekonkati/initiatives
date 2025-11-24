@@ -33,29 +33,45 @@ export const useUser = (id: string | undefined) => {
   return useDoc<User>(docRef);
 };
 
+
 export const useInitiatives = () => {
     const firestore = useFirestore();
     const { user: authUser, isUserLoading } = useAuthUser();
+    const { data: currentUser, isLoading: isCurrentUserLoading } = useUser(authUser?.uid);
 
-    // This query is now much simpler and will trigger correctly once auth is loaded.
     const q = useMemoFirebase(() => {
-        // Wait only for authUser to be available.
-        if (isUserLoading || !firestore || !authUser) {
+        if (isUserLoading || isCurrentUserLoading || !firestore || !authUser) {
             return null;
         }
 
-        // Always query for initiatives the user is a member of.
-        // Admins might need a different view, but for the core functionality
-        // this ensures any member sees their own initiatives.
-        // Security rules will ultimately enforce what can be read.
-        return query(
-            collection(firestore, 'initiatives'),
-            or(
-                where('leadIds', 'array-contains', authUser.uid),
-                where('teamMemberIds', 'array-contains', authUser.uid)
-            )
-        );
-    }, [firestore, authUser, isUserLoading]);
+        // If the user's profile hasn't loaded yet, we can't determine their role.
+        if (!currentUser) {
+            // For a moment, a non-admin might not have their profile loaded.
+            // We can default to the secure query. If they are an admin, the hook will
+            // re-run once their profile loads and fetch all initiatives.
+            return query(
+                collection(firestore, 'initiatives'),
+                or(
+                    where('leadIds', 'array-contains', authUser.uid),
+                    where('teamMemberIds', 'array-contains', authUser.uid)
+                )
+            );
+        }
+
+        if (currentUser.role === 'Admin') {
+            // Admin can see all initiatives.
+            return query(collection(firestore, 'initiatives'));
+        } else {
+            // Regular users see only their own initiatives.
+            return query(
+                collection(firestore, 'initiatives'),
+                or(
+                    where('leadIds', 'array-contains', authUser.uid),
+                    where('teamMemberIds', 'array-contains', authUser.uid)
+                )
+            );
+        }
+    }, [firestore, authUser, isUserLoading, currentUser, isCurrentUserLoading]);
 
     return useCollection<Initiative>(q);
 };
@@ -141,4 +157,3 @@ export const useDesignations = () => {
     }, [firestore, user]);
     return useCollection<Designation>(q);
 };
-
